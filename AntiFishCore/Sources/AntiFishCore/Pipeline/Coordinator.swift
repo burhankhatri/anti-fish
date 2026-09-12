@@ -113,6 +113,7 @@ public actor Coordinator {
             try db.replaceEnrollment(jid: fp.jid, notes: Array(own.prefix(policy.maxNotes)))
         }
         try db.saveFingerprints(fingerprints)
+        try db.clearUnverifiableVerdicts(for: fingerprints.map(\.jid), reason: .notEnrolled)
         try db.setSetting("enrollmentModelVersion", engine.modelVersion)
 
         let pinned = Set(try db.contacts().filter(\.pinned).map(\.jid))
@@ -183,6 +184,8 @@ public actor Coordinator {
 
         guard !added.isEmpty else { return [] }
         try db.saveFingerprints(fingerprints)
+        // Notes already judged "no baseline yet" can now be judged properly.
+        try db.clearUnverifiableVerdicts(for: added, reason: .notEnrolled)
         try db.saveCalibration(Calibrator.calibrate(notes: try db.allEnrollmentNotes(), center: center))
         let pinned = try db.contacts().filter(\.pinned).map(\.jid)
         continuation.yield(.enrollmentFinished(
@@ -239,11 +242,18 @@ public actor Coordinator {
         names[note.senderJID] = identity.displayName
 
         let hasFingerprint = fingerprints.contains { $0.jid == note.senderJID }
-        // A claim the user makes is a question about an unknown caller, so ask it that way even if
-        // the number happens to be saved.
-        let senderClass: SenderClass = forcedClaim != nil
-            ? .unknown
-            : (identity.isSavedContact ? (hasFingerprint ? .knownEnrolled : .knownUnenrolled) : .unknown)
+        let natural: SenderClass = identity.isSavedContact
+            ? (hasFingerprint ? .knownEnrolled : .knownUnenrolled)
+            : .unknown
+        // Naming someone the user does not have saved asks the impersonation question. Naming the
+        // sender themselves is just the ordinary check, and calling their own saved number
+        // "a number you have not saved" was both wrong and alarming.
+        let senderClass: SenderClass
+        if let forcedClaim, forcedClaim != note.senderJID {
+            senderClass = .unknown
+        } else {
+            senderClass = natural
+        }
 
         let url = config.locator.mediaURL(relativePath: note.relativeMediaPath)
         let mediaReady = await waitForMedia(at: url)

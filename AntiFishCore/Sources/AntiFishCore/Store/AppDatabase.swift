@@ -168,6 +168,29 @@ public final class AppDatabase: Sendable {
                      [.int(Int64(limit))]).map(VerdictRecord.init(row:))
     }
 
+    /// Forgets verdicts that could not be reached for a reason that no longer applies, so they
+    /// are judged again. A note stored as "no baseline yet" is wrong the moment one exists.
+    @discardableResult
+    public func clearUnverifiableVerdicts(for senders: [String],
+                                          reason: UnverifiableReason) throws -> Int {
+        guard !senders.isEmpty else { return 0 }
+        var cleared = 0
+        try db.transaction {
+            for jid in senders {
+                let rows = try db.query("""
+                    SELECT messagePK FROM verdict
+                    WHERE senderJID = ? AND kind = ? AND reason = ?
+                    """, [.text(jid), .text(VerdictKind.unverifiable.rawValue), .text(reason.rawValue)])
+                for row in rows {
+                    guard let pk = row.int("messagePK") else { continue }
+                    try db.run("DELETE FROM verdict WHERE messagePK = ?", [.int(pk)])
+                    cleared += 1
+                }
+            }
+        }
+        return cleared
+    }
+
     public func verdict(messagePK: Int64) throws -> VerdictRecord? {
         try db.query("SELECT * FROM verdict WHERE messagePK = ?", [.int(messagePK)])
             .first.map(VerdictRecord.init(row:))
