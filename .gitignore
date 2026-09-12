@@ -28,3 +28,6 @@ AntiFish.xcodeproj/
 
 # API credentials — never commit
 .env
+
+# Demo stills: real chats, real names, real faces. Not for the repo.
+screenshots/
