@@ -201,6 +201,21 @@ public final class AppDatabase: Sendable {
         try setSetting("lastSeenMessagePK", String(pk))
     }
 
+    /// Chats the user has taken out of the list. Kept here rather than in WhatsApp, which never
+    /// learns about it.
+    public func hiddenChatJIDs() throws -> [String] {
+        guard let json = try setting("hiddenChats"),
+              let list = try? JSONDecoder().decode([String].self, from: Data(json.utf8)) else { return [] }
+        return list
+    }
+
+    public func setChatHidden(jid: String, _ hidden: Bool) throws {
+        var list = Set(try hiddenChatJIDs())
+        if hidden { list.insert(jid) } else { list.remove(jid) }
+        let json = String(decoding: try JSONEncoder().encode(list.sorted()), as: UTF8.self)
+        try setSetting("hiddenChats", json)
+    }
+
     public func calibration() throws -> CalibrationResult? {
         guard let json = try setting("calibration") else { return nil }
         return try? JSONDecoder().decode(CalibrationResult.self, from: Data(json.utf8))

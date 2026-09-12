@@ -10,11 +10,14 @@ public struct ChatSummary: Sendable, Equatable, Identifiable, Hashable {
     public let isArchived: Bool
     public let unreadCount: Int
     public let lastMessageDate: Date?
+    /// Voice notes other people sent in this chat. The app's evidence, and what makes a chat
+    /// worth opening.
+    public let voiceNoteCount: Int
 
     public var id: Int64 { sessionPK }
 
     public init(sessionPK: Int64, jid: String, savedName: String?, isGroup: Bool, isArchived: Bool,
-                unreadCount: Int, lastMessageDate: Date?) {
+                unreadCount: Int, lastMessageDate: Date?, voiceNoteCount: Int = 0) {
         self.sessionPK = sessionPK
         self.jid = jid
         self.savedName = savedName
@@ -22,6 +25,36 @@ public struct ChatSummary: Sendable, Equatable, Identifiable, Hashable {
         self.isArchived = isArchived
         self.unreadCount = unreadCount
         self.lastMessageDate = lastMessageDate
+        self.voiceNoteCount = voiceNoteCount
+    }
+}
+
+/// How the chat list is ordered.
+public enum ChatOrder: String, Sendable, CaseIterable, Identifiable {
+    /// What WhatsApp does.
+    case recent
+    /// Chats with the most incoming voice notes first, so there is something to look at.
+    case mostVoice
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .recent: "Recent"
+        case .mostVoice: "Most voice notes"
+        }
+    }
+
+    public func apply(to chats: [ChatSummary]) -> [ChatSummary] {
+        switch self {
+        case .recent:
+            return chats.sorted { ($0.lastMessageDate ?? .distantPast) > ($1.lastMessageDate ?? .distantPast) }
+        case .mostVoice:
+            return chats.sorted { a, b in
+                if a.voiceNoteCount != b.voiceNoteCount { return a.voiceNoteCount > b.voiceNoteCount }
+                return (a.lastMessageDate ?? .distantPast) > (b.lastMessageDate ?? .distantPast)
+            }
+        }
     }
 }
 
@@ -30,12 +63,14 @@ public enum ChatListQuery {
     /// an impersonator often lands in a chat the user has tucked away.
     public static func fetch(_ store: ChatStore, limit: Int = 500) throws -> [ChatSummary] {
         try store.db.query("""
-            SELECT Z_PK AS pk, ZCONTACTJID AS jid, ZPARTNERNAME AS name,
-                   (ZGROUPINFO IS NOT NULL) AS isGroup, ZARCHIVED AS archived,
-                   ZUNREADCOUNT AS unread, ZLASTMESSAGEDATE AS lastDate
-            FROM ZWACHATSESSION
-            WHERE ZCONTACTJID IS NOT NULL AND COALESCE(ZHIDDEN, 0) = 0
-            ORDER BY COALESCE(ZLASTMESSAGEDATE, 0) DESC
+            SELECT s.Z_PK AS pk, s.ZCONTACTJID AS jid, s.ZPARTNERNAME AS name,
+                   (s.ZGROUPINFO IS NOT NULL) AS isGroup, s.ZARCHIVED AS archived,
+                   s.ZUNREADCOUNT AS unread, s.ZLASTMESSAGEDATE AS lastDate,
+                   (SELECT COUNT(*) FROM ZWAMESSAGE m
+                     WHERE m.ZCHATSESSION = s.Z_PK AND m.ZMESSAGETYPE = 3 AND m.ZISFROMME = 0) AS voiceNotes
+            FROM ZWACHATSESSION s
+            WHERE s.ZCONTACTJID IS NOT NULL AND COALESCE(s.ZHIDDEN, 0) = 0
+            ORDER BY COALESCE(s.ZLASTMESSAGEDATE, 0) DESC
             LIMIT :limit
             """, named: ["limit": .int(Int64(limit))]).map { row in
             ChatSummary(sessionPK: row.int("pk") ?? 0,
@@ -44,7 +79,8 @@ public enum ChatListQuery {
                         isGroup: row.bool("isGroup") ?? false,
                         isArchived: row.bool("archived") ?? false,
                         unreadCount: Int(row.int("unread") ?? 0),
-                        lastMessageDate: row.double("lastDate").map(Date.init(timeIntervalSinceReferenceDate:)))
+                        lastMessageDate: row.double("lastDate").map(Date.init(timeIntervalSinceReferenceDate:)),
+                        voiceNoteCount: Int(row.int("voiceNotes") ?? 0))
         }
     }
 }

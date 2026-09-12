@@ -1,3 +1,4 @@
+import AntiFishCore
 import SwiftUI
 
 struct ChatListView: View {
@@ -13,10 +14,37 @@ struct ChatListView: View {
                 }
             })) {
             ForEach(model.visibleChats) { chat in
-                ChatRowView(chat: chat).tag(chat.id)
+                ChatRowView(chat: chat)
+                    .tag(chat.id)
+                    .contextMenu {
+                        Button("Hide chat") { Task { await model.hideChat(chat) } }
+                    }
             }
         }
         .searchable(text: $model.chatSearch, placement: .sidebar, prompt: "Search chats")
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack(spacing: 8) {
+                Picker("", selection: $model.chatOrder) {
+                    ForEach(ChatOrder.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .accessibilityIdentifier("chat.order")
+                if model.hiddenChatCount > 0 {
+                    Button {
+                        Task { await model.unhideAllChats() }
+                    } label: {
+                        Label("\(model.hiddenChatCount)", systemImage: "eye.slash")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Show hidden chats again")
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.bar)
+        }
         .accessibilityIdentifier("chat.list")
         .overlay {
             if model.chats.isEmpty {
@@ -56,6 +84,12 @@ struct ChatRowView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     Spacer(minLength: 4)
+                    if chat.summary.voiceNoteCount > 0 {
+                        Label("\(chat.summary.voiceNoteCount)", systemImage: "waveform")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .labelStyle(.titleAndIcon)
+                    }
                     if chat.attentionCount > 0 {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 10))

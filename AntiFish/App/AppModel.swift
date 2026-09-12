@@ -24,6 +24,9 @@ final class AppModel {
     var thread: [ThreadItem] = []
     var isLoadingThread = false
     var chatSearch = ""
+    var chatOrder: ChatOrder = .recent {
+        didSet { Task { try? await refreshChats() } }
+    }
 
     var visibleChats: [ChatRow] {
         guard !chatSearch.isEmpty else { return chats }
@@ -199,7 +202,8 @@ final class AppModel {
 
     func refreshChats() async throws {
         guard let coordinator else { return }
-        let summaries = try await coordinator.chats()
+        let hidden = Set((try? db?.hiddenChatJIDs()) ?? [])
+        let summaries = chatOrder.apply(to: try await coordinator.chats().filter { !hidden.contains($0.jid) })
         let verdicts = Dictionary(grouping: try db?.verdicts(limit: 500) ?? [], by: \.chatJID)
 
         var rows: [ChatRow] = []
@@ -262,6 +266,29 @@ final class AppModel {
             if selectedChatPK == chat.id { try? await refreshThread() }
         }
         _ = db
+    }
+
+    /// Takes a chat out of the list. WhatsApp never learns about it; this is AntiFish's own view.
+    func hideChat(_ chat: ChatRow) async {
+        try? db?.setChatHidden(jid: chat.summary.jid, true)
+        if selectedChatPK == chat.id { selectedChatPK = nil; thread = [] }
+        try? await refreshChats()
+    }
+
+    func hideChats(matching predicate: (ChatRow) -> Bool) async {
+        for chat in chats where predicate(chat) {
+            try? db?.setChatHidden(jid: chat.summary.jid, true)
+        }
+        try? await refreshChats()
+    }
+
+    var hiddenChatCount: Int { ((try? db?.hiddenChatJIDs()) ?? [])?.count ?? 0 }
+
+    func unhideAllChats() async {
+        for jid in ((try? db?.hiddenChatJIDs()) ?? []) ?? [] {
+            try? db?.setChatHidden(jid: jid, false)
+        }
+        try? await refreshChats()
     }
 
     static func preview(for message: ChatMessage) -> String {
