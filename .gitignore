@@ -25,3 +25,6 @@ AntiFishCore/.build/
 
 # XcodeGen output
 AntiFish.xcodeproj/
+
+# API credentials — never commit
+.env
