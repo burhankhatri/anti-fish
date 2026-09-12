@@ -71,7 +71,10 @@ instead, which gives the same testability without the split.
 
 - `WhatsApp/ContainerLocator` — resolves the group container; `isInstalled`;
   `hasFullDiskAccess` (attempts a 1-byte read of `ChatStorage.sqlite`).
-- `WhatsApp/ChatStore` — GRDB `DatabaseQueue` opened `readonly: true` with a 2 s
+- `Store/SQLite` — a thin wrapper over the system `SQLite3` C library:
+  open (read-only or read-write), prepared statements, typed column reads,
+  and a `user_version` migration runner. No third-party database dependency.
+- `WhatsApp/ChatStore` — `SQLite.Database` opened read-only with a 2 s
   busy timeout on the live `ChatStorage.sqlite`. `ContactsStore` likewise on
   `ContactsV2.sqlite`. Fallback: if an open fails with `SQLITE_BUSY` three times
   in a row, copy DB+WAL+SHM to a temp dir and open the copy for that pass only.
@@ -98,7 +101,7 @@ instead, which gives the same testability without the split.
 - `Voice/Enroller` — enrolment policy (section 7).
 - `Voice/Verifier` — sender classification + scoring → `Verdict` (section 8).
 - `Voice/Calibrator` — thresholds from score distributions (section 8.3).
-- `Store/AppDatabase` — GRDB at
+- `Store/AppDatabase` — `SQLite.Database` at
   `~/Library/Application Support/AntiFish/antifish.sqlite`. Tables: `contact`
   (jid, displayName, isSaved, pinned, blacklisted, avatarPath), `enrollment_note`
   (jid, messagePK, embedding BLOB, speechSeconds, date), `fingerprint` (jid,
@@ -299,8 +302,12 @@ nothing from it is ever committed.
   crashing. No decoder dependency is added.
 - XcodeGen 2.45.4 (`project.yml` is the source of truth), Makefile targets:
   `project build run test test-integration test-ui models release`.
-- SPM: `sherpa-onnx` v1.13.8 (product `sherpa-onnx`, static), `GRDB.swift`
-  v7.11.1.
+- SPM: `sherpa-onnx` v1.13.8 (product `sherpa-onnx`, static) is the only
+  third-party dependency. Storage uses the system `SQLite3` library through a
+  small in-repo wrapper. GRDB was evaluated and dropped on 2026-09-12: its git
+  history is ~220 MB and the mirror clone stalled, which is a poor trade for a
+  privacy tool whose storage needs are a handful of tables. Overlap reads the
+  same WhatsApp databases with the raw C API, so the approach is proven.
 - Models fetched by `make models` with SHA-256 verification into
   `AntiFish/Resources/Models/` (gitignored); copied into the bundle at build.
 - Bundle ID `com.magnetismstudios.antifish.mac`; not sandboxed; hardened
