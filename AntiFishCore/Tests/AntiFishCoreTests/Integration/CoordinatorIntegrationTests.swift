@@ -96,6 +96,7 @@ final class CoordinatorIntegrationTests: XCTestCase {
         XCTAssertGreaterThan(verdicts.count, 0)
         XCTAssertTrue(verdicts.allSatisfy { $0.messagePK > maxPK - 300 })
         XCTAssertGreaterThanOrEqual(try db.lastSeenMessagePK(), maxPK - 300)
-        XCTAssertEqual(try await coordinator.processNew().count, 0, "a second pass has nothing left to do")
+        let second = try await coordinator.processNew()
+        XCTAssertEqual(second.count, 0, "a second pass has nothing left to do")
     }
 }
