@@ -15,7 +15,7 @@ Rules: tests write only under `NSTemporaryDirectory()`. Never commit audio, data
 ## Verified on 2026-09-12
 
 Unit suite: 124 tests, 0 failures, 0 skipped.
-Integration suite (this Mac's real WhatsApp data): 10 tests, 0 failures, 0 skipped.
+Integration suite (this Mac's real WhatsApp data): 13 tests, 0 failures, 0 skipped (233 s).
 
 What the integration suite proves, on real voice notes rather than fixtures:
 
