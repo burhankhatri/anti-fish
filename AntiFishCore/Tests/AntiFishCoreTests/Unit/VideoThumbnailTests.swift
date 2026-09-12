@@ -64,28 +64,31 @@ final class VideoThumbnailTests: XCTestCase {
         return reds.reduce(0, +) / max(reds.count, 1)
     }
 
-    func testAPosterFrameIsProducedForAClip() throws {
+    func testAPosterFrameIsProducedForAClip() async throws {
         let url = try makeClip(seconds: 2, openingBlackSeconds: 0)
         defer { try? FileManager.default.removeItem(at: url) }
-        let poster = try XCTUnwrap(VideoThumbnail.poster(for: url))
+        let frame = await VideoThumbnail.poster(for: url)
+        let poster = try XCTUnwrap(frame)
         XCTAssertEqual(poster.width, 160)
         XCTAssertEqual(poster.height, 120)
     }
 
     /// The very first frame of a phone video is often black or half-rendered, which would put an
     /// empty rectangle in the thread and tell the reader nothing.
-    func testThePosterSkipsABlackOpening() throws {
+    func testThePosterSkipsABlackOpening() async throws {
         let url = try makeClip(seconds: 3, openingBlackSeconds: 1.0)
         defer { try? FileManager.default.removeItem(at: url) }
-        let poster = try XCTUnwrap(VideoThumbnail.poster(for: url))
+        let frame = await VideoThumbnail.poster(for: url)
+        let poster = try XCTUnwrap(frame)
         XCTAssertGreaterThan(averageRed(poster), 128, "a black opening frame was picked")
     }
 
-    func testAFileThatIsNotAVideoGivesNothingRatherThanThrowing() throws {
+    func testAFileThatIsNotAVideoGivesNothingRatherThanThrowing() async throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("not-a-video-\(UUID().uuidString).mp4")
         try Data("this is not a video".utf8).write(to: url)
         defer { try? FileManager.default.removeItem(at: url) }
-        XCTAssertNil(VideoThumbnail.poster(for: url))
+        let poster = await VideoThumbnail.poster(for: url)
+        XCTAssertNil(poster)
     }
 }

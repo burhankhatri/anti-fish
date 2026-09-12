@@ -255,9 +255,11 @@ struct VideoBubble: View {
 
     private var verdict: VideoVerdict? { model.videoVerdicts[item.id] }
     private var isChecking: Bool { model.videoCheckInFlight == item.id }
+    @State private var poster: NSImage?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
+            posterFrame
             HStack(spacing: Spacing.xs) {
                 Image(systemName: "play.rectangle.fill")
                     .font(.system(size: 22))
@@ -311,6 +313,35 @@ struct VideoBubble: View {
                 .accessibilityIdentifier("video.check.\(item.id)")
             }
         }
+        .task(id: item.id) { await loadPoster() }
+    }
+
+    /// A still from the clip itself. Until it arrives the row is the icon and duration alone,
+    /// rather than a grey rectangle that shifts the thread when the picture lands.
+    @ViewBuilder
+    private var posterFrame: some View {
+        if let poster {
+            ZStack {
+                Image(nsImage: poster)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 240, height: 180)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .shadow(radius: 4)
+            }
+            // Decoration only: an overflowing picture on top of a button swallows its clicks.
+            .allowsHitTesting(false)
+        }
+    }
+
+    private func loadPoster() async {
+        guard poster == nil, let url = model.mediaURL(for: item) else { return }
+        let frame = await VideoThumbnail.poster(for: url)
+        if let frame { poster = NSImage(cgImage: frame, size: .zero) }
     }
 }
 
