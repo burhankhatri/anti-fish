@@ -12,7 +12,7 @@ final class NameResolverTests: XCTestCase {
         XCTAssertEqual(id.displayName, "Abdul Test")
         XCTAssertTrue(id.isSavedContact)
         XCTAssertEqual(id.pushName, "abdul")
-        XCTAssertEqual(id.avatarPath, "Media/Profile/111-1.thumb")
+        XCTAssertEqual(id.avatarPath, "Media/Profile/111-1")
     }
 
     func testSavedChatNameUsedWhenNotInAddressBook() throws {

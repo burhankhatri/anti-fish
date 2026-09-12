@@ -45,7 +45,7 @@ enum FixtureDB {
               (1007,0,15,1,NULL,NULL,800000700,'111@lid',NULL,NULL),
               (1008,0,0,2,10,NULL,800000800,'200@g.us',NULL,'group text');
             INSERT INTO ZWAPROFILEPUSHNAME VALUES (1,'111@lid','abdul'),(2,'222@lid','Karim'),(3,'333@lid','Abdul'),(4,'444@lid','Someone Else');
-            INSERT INTO ZWAPROFILEPICTUREITEM VALUES (1,'111@lid','Media/Profile/111-1.thumb');
+            INSERT INTO ZWAPROFILEPICTUREITEM VALUES (1,'111@lid','Media/Profile/111-1');
             """)
     }
 
