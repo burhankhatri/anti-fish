@@ -113,6 +113,10 @@ public struct MailMessage: Sendable, Identifiable, Equatable {
     public let mitigating: [MailFinding]
     public let attachmentNames: [String]
     public let hasImages: Bool
+    /// What PhishGuard said before AntiFish's link-shape adjustment, when they differ.
+    public let originalTier: MailTier?
+
+    public var wasDowngraded: Bool { originalTier != nil }
 
     public var date: Date? { MailDate.parse(receivedAt) }
 
@@ -150,15 +154,20 @@ public struct MailScan: Sendable, Equatable {
             account: raw.account ?? "",
             tiers: raw.tiers ?? [:],
             messages: (raw.messages ?? []).map { m in
-                MailMessage(id: m.localID, path: m.path, mailbox: m.mailbox,
+                let findings = m.findings ?? []
+                let mitigating = m.mitigating ?? []
+                let raw = MailTier(raw: m.tier)
+                let adjusted = MailRescorer.adjust(tier: raw, findings: findings, mitigating: mitigating)
+                return MailMessage(id: m.localID, path: m.path, mailbox: m.mailbox,
                             subject: m.subject, fromAddress: m.fromAddress,
                             fromDisplay: m.fromDisplay, fromDomain: m.fromDomain,
                             receivedAt: m.receivedAt, snippet: m.snippet,
-                            tier: MailTier(raw: m.tier), score: m.score,
+                            tier: adjusted, score: m.score,
                             headline: m.headline,
-                            findings: m.findings ?? [], mitigating: m.mitigating ?? [],
+                            findings: findings, mitigating: mitigating,
                             attachmentNames: m.attachmentNames ?? [],
-                            hasImages: m.hasImages ?? false)
+                            hasImages: m.hasImages ?? false,
+                            originalTier: adjusted == raw ? nil : raw)
             })
     }
 

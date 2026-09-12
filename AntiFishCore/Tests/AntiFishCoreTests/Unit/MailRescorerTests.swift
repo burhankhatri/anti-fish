@@ -43,18 +43,45 @@ final class MailRescorerTests: XCTestCase {
         }
     }
 
-    func testAnUnvouchedSenderIsLeftAlone() {
+    func testAnUnvouchedSenderKeepsItsVerdict() {
         let tier = MailRescorer.adjust(tier: .danger,
-                                       findings: [finding("URL_ANCHOR_MISMATCH", 0.74)],
+                                       findings: [finding("URL_ANCHOR_MISMATCH", 0.74),
+                                                  finding("HTML_IMAGE_ONLY", 0.44),
+                                                  finding("REPLY_TO_OFFDOMAIN", 0.3)],
                                        mitigating: [])
         XCTAssertEqual(tier, .danger, "without DMARC passing there is nothing vouching for it")
     }
 
     func testPassingDMARCAloneIsNotEnough() {
         let tier = MailRescorer.adjust(tier: .danger,
-                                       findings: [finding("URL_ANCHOR_MISMATCH", 0.74)],
+                                       findings: [finding("URL_ANCHOR_MISMATCH", 0.74),
+                                                  finding("HTML_IMAGE_ONLY", 0.44)],
                                        mitigating: [MailFinding(code: "DMARC_PASS")])
         XCTAssertEqual(tier, .danger, "anyone can pass DMARC on a domain they just registered")
+    }
+
+    /// One tracked link, on its own, is not evidence of anything. Measured on this mailbox it
+    /// carried two senders to "danger" with nothing else against them.
+    func testASingleLinkShapeFindingCannotReachDanger() {
+        XCTAssertEqual(MailRescorer.adjust(tier: .danger,
+                                           findings: [finding("URL_ANCHOR_MISMATCH", 0.74)],
+                                           mitigating: []),
+                       .caution)
+    }
+
+    func testTwoLinkShapeFindingsFromAnUnvouchedSenderStillCount() {
+        XCTAssertEqual(MailRescorer.adjust(tier: .danger,
+                                           findings: [finding("URL_ANCHOR_MISMATCH", 0.74),
+                                                      finding("HTML_HIDDEN_TEXT", 0.46)],
+                                           mitigating: []),
+                       .danger)
+    }
+
+    func testASingleHardFindingStillReachesDanger() {
+        XCTAssertEqual(MailRescorer.adjust(tier: .danger,
+                                           findings: [finding("URL_FREE_HOSTING", 0.45)],
+                                           mitigating: []),
+                       .danger)
     }
 
     func testCautionAndSafeAreNeverChanged() {

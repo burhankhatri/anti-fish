@@ -32,9 +32,13 @@ from phishguard.detect.view import MessageView              # noqa: E402
 MAIL_ROOT = Path.home() / "Library" / "Mail"
 
 
-def emlx_files(root: Path = MAIL_ROOT, limit: int | None = None) -> list[Path]:
+def emlx_files(root: Path = MAIL_ROOT, limit: int | None = None,
+               mailbox: str | None = None) -> list[Path]:
     """Newest first, so a small sample is still recent mail."""
     files = [p for p in root.rglob("*.emlx") if not p.name.startswith("._")]
+    if mailbox:
+        needle = mailbox.lower()
+        files = [p for p in files if needle in mailbox_of(p).lower()]
     files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     return files[:limit] if limit else files
 
@@ -104,8 +108,16 @@ def account_address() -> str:
     return "me@localhost"
 
 
-def scan(limit: int, pick: int, db_path: str | None) -> dict:
-    paths = emlx_files(limit=limit)
+def scan(limit: int, pick: int, db_path: str | None, mailbox: str | None = None) -> dict:
+    if mailbox:
+        paths = emlx_files(limit=limit, mailbox=mailbox)
+    else:
+        # Spam is where phishing that got past the provider's filter actually lives, so it is
+        # always included rather than left to chance in a recency window.
+        spam = emlx_files(limit=200, mailbox="Spam")
+        recent = emlx_files(limit=limit)
+        seen = {p for p in spam}
+        paths = spam + [p for p in recent if p not in seen]
     if not paths:
         return {"error": "no mail found in ~/Library/Mail", "messages": []}
 
@@ -174,8 +186,18 @@ def scan(limit: int, pick: int, db_path: str | None) -> dict:
 
     # A demo wants variety, not eight copies of the same receipt. One per
     # sender-and-subject, then the strongest verdicts across all three tiers.
+    # Hard evidence beats a high score. A newsletter full of tracking links can out-score a real
+    # phishing message, so rank by how much of the evidence cannot be explained away.
+    HARD = {"DKIM_FAIL", "DKIM_UNALIGNED", "DMARC_FAIL", "DMARC_FAIL_ENFORCED", "SPF_FAIL",
+            "URL_FREE_HOSTING", "URL_IP_LITERAL", "URL_PUNYCODE", "LOOKALIKE_DOMAIN",
+            "LOOKALIKE_DOMAIN_TLD_SWAP", "URL_LOOKALIKE_DOMAIN", "DISPLAY_NAME_IMPERSONATION",
+            "HTML_FORM", "QR_CODE_PRESENT", "ATTACHMENT_EXECUTABLE", "ATTACHMENT_MACRO",
+            "ATTACHMENT_DOUBLE_EXTENSION", "CREDENTIAL_REQUEST"}
+    for r in results:
+        r["hardCount"] = sum(1 for f in r["findings"] if f["code"] in HARD)
+
     order = {"danger": 0, "caution": 1, "safe": 2}
-    results.sort(key=lambda r: (order.get(r["tier"], 3), -r["score"]))
+    results.sort(key=lambda r: (order.get(r["tier"], 3), -r["hardCount"], -r["score"]))
 
     seen: set[tuple[str, str]] = set()
     unique = []
@@ -217,8 +239,9 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=600, help="messages to ingest")
     ap.add_argument("--pick", type=int, default=30, help="messages to return")
     ap.add_argument("--db", help="reuse a store instead of a temp one")
+    ap.add_argument("--mailbox", help="only this mailbox, e.g. Spam")
     args = ap.parse_args()
-    json.dump(scan(args.limit, args.pick, args.db), sys.stdout, indent=None)
+    json.dump(scan(args.limit, args.pick, args.db, args.mailbox), sys.stdout, indent=None)
     sys.stdout.write("\n")
     return 0
 
