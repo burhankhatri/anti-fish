@@ -125,6 +125,10 @@ struct VoiceNoteBubble: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("bubble.verdict.\(item.id)")
+                // Anyone can be asked about, but it matters most for a number you have not saved.
+                if !item.isFromMe, item.message.relativeMediaPath != nil {
+                    ClaimPicker(item: item)
+                }
             } else if !item.isFromMe, item.message.relativeMediaPath != nil {
                 HStack(spacing: 5) {
                     ProgressView().controlSize(.small)

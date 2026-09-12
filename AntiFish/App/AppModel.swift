@@ -18,6 +18,17 @@ final class AppModel {
     var selectedItemID: Int64?
     var needsRebuild = false
 
+    // Which side of the app is showing, and what the mail side has found.
+    var source: AppSource = .whatsapp
+    var mailScan: MailScan?
+    var isScanningMail = false
+    var mailError: String?
+    var selectedMailID: String?
+
+    var mailMessages: [MailMessage] { mailScan?.messages ?? [] }
+    var dangerMailCount: Int { mailMessages.filter { $0.tier == .danger }.count }
+    var selectedMail: MailMessage? { mailMessages.first { $0.id == selectedMailID } }
+
     // WhatsApp-shaped state: a list of chats, one of them open.
     var chats: [ChatRow] = []
     var selectedChatPK: Int64?
@@ -52,6 +63,8 @@ final class AppModel {
     private var identities: [String: ResolvedIdentity] = [:]
     private var waveforms: [Int64: [Float]] = [:]
     private var previews: [Int64: String] = [:]
+    private let mailReader = MailReader()
+    private let imageCheck = ImageCheck()
 
     init(locator: ContainerLocator = AppModel.defaultLocator,
          databaseURL: URL? = AppModel.defaultDatabaseURL,
@@ -197,6 +210,57 @@ final class AppModel {
         calibration = try db?.calibration()
         if selectedChatPK != nil { try await refreshThread() }
     }
+
+    // MARK: Checking a claim
+
+    /// Everyone the user could name when asked who a caller claims to be.
+    var claimCandidates: [ClaimCandidate] = []
+    /// The answer to the last claim the user tested, keyed by message.
+    var claimResults: [Int64: Verdict] = [:]
+    var claimInFlight: Int64?
+
+    func loadClaimCandidates() async {
+        claimCandidates = (try? await coordinator?.claimCandidates()) ?? []
+    }
+
+    /// "This person says they are Abdul." Asks the question and keeps the answer beside the note.
+    func checkClaim(_ item: ThreadItem, claiming jid: String) async {
+        claimInFlight = item.id
+        defer { claimInFlight = nil }
+        if let verdict = try? await coordinator?.check(messagePK: item.id, claiming: jid) {
+            claimResults[item.id] = verdict
+        }
+    }
+
+    func clearClaim(_ item: ThreadItem) {
+        claimResults.removeValue(forKey: item.id)
+    }
+
+    // MARK: Email
+
+    /// Shows whatever the last scan found straight away; a fresh scan runs only when asked.
+    func loadCachedMail() {
+        mailScan = try? mailReader.cachedScan()
+    }
+
+    func scanMail() async {
+        guard !isScanningMail else { return }
+        isScanningMail = true
+        mailError = nil
+        defer { isScanningMail = false }
+        do {
+            let reader = mailReader
+            mailScan = try await Task.detached(priority: .userInitiated) {
+                try reader.scan(limit: 400, pick: 30)
+            }.value
+        } catch {
+            mailError = "Couldn't read your mail: \(error)"
+        }
+    }
+
+    var mailIsAvailable: Bool { mailReader.isAvailable }
+    var imageCheckAvailable: Bool { imageCheck.isConfigured }
+    var imageCheckReason: String { imageCheck.unavailableReason }
 
     // MARK: Chats
 

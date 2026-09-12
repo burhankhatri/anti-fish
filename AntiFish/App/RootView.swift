@@ -11,7 +11,7 @@ struct RootView: View {
                 OnboardingView()
             }
         }
-        .task { await model.start() }
+        .task { await model.start(); await model.loadClaimCandidates() }
         .onReceive(NotificationCenter.default.publisher(for: .antifishOpenVerdict)) { note in
             if let pk = note.userInfo?["messagePK"] as? Int64 { model.selectedItemID = pk }
         }

@@ -18,7 +18,10 @@ interrupts the user.
 - No AI-clone / synthetic-speech detection. A clone of Abdul's voice that matches
   Abdul's fingerprint is reported as verified. Anti-spoofing is v2.
 - No iMessage, Telegram, Signal, WhatsApp Web.
-- No network at runtime. Models are bundled. No Sparkle, telemetry, paywall.
+- No network at runtime for anything voice or email: models are bundled and
+  PhishGuard runs locally. The image check is the single exception — it sends
+  the picture to SightEngine — and it is off unless credentials exist. No
+  Sparkle, telemetry or paywall.
 - No Mac App Store: the sandbox forbids reading WhatsApp's group container.
 - The user's own voice is not fingerprinted.
 

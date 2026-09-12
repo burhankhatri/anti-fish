@@ -4,8 +4,19 @@ Flags WhatsApp voice notes whose voice does not match the apparent sender.
 
 A stranger can put someone's name and photo on a new number and send you a voice note. AntiFish
 builds a voice fingerprint for the people who actually send you voice notes, then scores every
-incoming note against them. Everything runs on this Mac: it reads WhatsApp Desktop's local
-database and audio files, and never uses the network.
+incoming note against them. Two sides: WhatsApp voice notes, and the email already in Mail.app. Almost all of it runs on this
+Mac. The one exception is the image check, which sends the picture to SightEngine and stays off
+until keys are configured; the interface says so wherever it appears.
+
+## What it checks
+
+| Where | What | How |
+| --- | --- | --- |
+| WhatsApp | Voice notes | Speaker fingerprints built from the people who actually send you voice notes |
+| WhatsApp | "They say they're Abdul" | You name who the caller claims to be; the app tests that claim |
+| Email | Every message Mail.app has | [PhishGuard](https://github.com/shahmeer-irfan/phishguard), run unmodified over the local store |
+| Both | Shared images | [deepfake-check](https://github.com/abdulrehmann231/deep_fake) via SightEngine, off by default |
+| Both | Shared video | [antiFish-mp4](https://github.com/MominaAli1/antiFish-mp4), fully local, needs PyTorch |
 
 ## What it catches
 

@@ -8,28 +8,30 @@ struct MainView: View {
     var body: some View {
         @Bindable var model = model
         NavigationSplitView {
-            ChatListView()
-                .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 380)
-                .safeAreaInset(edge: .top, spacing: 0) { StatusStrip() }
+            Group {
+                switch model.source {
+                case .whatsapp: ChatListView()
+                case .mail: MailListView()
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
+            .safeAreaInset(edge: .top, spacing: 0) { StatusStrip() }
+            .safeAreaInset(edge: .bottom, spacing: 0) { SourceSwitcher() }
         } detail: {
-            if let chat = model.selectedChat {
+            if model.source == .mail {
+                if let mail = model.selectedMail {
+                    MailDetailView(message: mail)
+                } else {
+                    emptyDetail(title: "Pick a message",
+                                detail: "Open an email and AntiFish shows what it found.",
+                                symbol: "envelope.badge.shield.half.filled")
+                }
+            } else if let chat = model.selectedChat {
                 ThreadView(chat: chat)
             } else {
-                VStack(spacing: Spacing.sm) {
-                    Image(systemName: "waveform.badge.magnifyingglass")
-                        .font(.system(size: 44, weight: .light))
-                        .foregroundStyle(Color.outlineVariant)
-                    Text("Pick a chat")
-                        .font(AppType.headingSm)
-                        .foregroundStyle(Color.onSurface)
-                    Text("Open a conversation and AntiFish checks the voice notes in it.")
-                        .font(AppType.bodySm)
-                        .foregroundStyle(Color.onSurfaceVariant)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 320)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.background)
+                emptyDetail(title: "Pick a chat",
+                            detail: "Open a conversation and AntiFish checks the voice notes in it.",
+                            symbol: "waveform.badge.magnifyingglass")
             }
         }
         .toolbar {
@@ -57,6 +59,22 @@ struct MainView: View {
         .sheet(item: selectedItem) { item in
             DetailSheet(item: item)
         }
+    }
+
+    private func emptyDetail(title: String, detail: String, symbol: String) -> some View {
+        VStack(spacing: Spacing.sm) {
+            Image(systemName: symbol)
+                .font(.system(size: 44, weight: .light))
+                .foregroundStyle(Color.outlineVariant)
+            Text(title).font(AppType.headingSm).foregroundStyle(Color.onSurface)
+            Text(detail)
+                .font(AppType.bodySm)
+                .foregroundStyle(Color.onSurfaceVariant)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 320)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.background)
     }
 
     private var selectedItem: Binding<FeedItem?> {
