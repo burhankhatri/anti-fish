@@ -28,41 +28,29 @@ final class VoiceEngineIntegrationTests: XCTestCase {
         XCTAssertLessThanOrEqual(analysis.speechSeconds, analysis.totalSeconds + 0.01)
     }
 
-    /// The heart of the product: two notes from the same person must score higher against each
-    /// other than against notes from anyone else. Uses this Mac's real voice notes.
-    func testSameSpeakerScoresHigherThanDifferentSpeakers() async throws {
+    /// The engine's own contract: every real note with speech in it yields a usable fingerprint.
+    /// How well those fingerprints separate speakers is asserted by
+    /// `EmbeddingSeparationIntegrationTests`, which measures ten speakers in both scoring spaces.
+    func testEveryUsableNoteYieldsAWellFormedEmbedding() async throws {
         try TestEnv.skipUnlessRealWA()
         try TestEnv.skipUnlessModels()
         let (locator, notes) = try incomingNotes(minDuration: 4)
-        let bySender = Dictionary(grouping: notes, by: \.senderJID).filter { $0.value.count >= 2 }
-        let senders = Array(bySender.keys.sorted().prefix(6))
-        try XCTSkipUnless(senders.count >= 3, "needs at least three senders with two notes each")
+        let sample = Array(notes.suffix(12))
+        XCTAssertGreaterThan(sample.count, 0)
 
         let engine = try engine()
-        var embeddings: [String: [[Float]]] = [:]
-        for sender in senders {
-            for note in bySender[sender]!.suffix(2) {
-                let analysis = try await engine.analyze(url: locator.mediaURL(relativePath: note.relativeMediaPath))
-                guard !analysis.embedding.isEmpty else { continue }
-                embeddings[sender, default: []].append(analysis.embedding)
+        var withSpeech = 0
+        for note in sample {
+            let a = try await engine.analyze(url: locator.mediaURL(relativePath: note.relativeMediaPath))
+            XCTAssertLessThanOrEqual(a.speechSeconds, a.totalSeconds + 0.01)
+            guard a.speechSeconds >= VoiceEngine.minSpeechSecondsForEmbedding else {
+                XCTAssertTrue(a.embedding.isEmpty, "no speech must mean no fingerprint")
+                continue
             }
+            withSpeech += 1
+            XCTAssertEqual(a.embedding.count, 256, "message \(note.messagePK)")
+            XCTAssertEqual(a.embedding.reduce(0) { $0 + $1 * $1 }.squareRoot(), 1, accuracy: 1e-4)
         }
-        let usable = embeddings.filter { $0.value.count >= 2 }
-        XCTAssertGreaterThanOrEqual(usable.count, 3)
-
-        var same: [Float] = []
-        var different: [Float] = []
-        for (sender, vectors) in usable {
-            same.append(Vector.cosine(vectors[0], vectors[1]))
-            for (other, otherVectors) in usable where other != sender {
-                different.append(Vector.cosine(vectors[0], otherVectors[0]))
-            }
-        }
-        let sameMean = same.reduce(0, +) / Float(same.count)
-        let differentMean = different.reduce(0, +) / Float(different.count)
-        XCTAssertGreaterThan(sameMean, differentMean + 0.15,
-                             "same-speaker mean \(sameMean) vs different-speaker mean \(differentMean)")
-        XCTAssertGreaterThan(same.min() ?? 0, different.max() ?? 1,
-                             "worst same-speaker pair should still beat the best impostor pair")
+        XCTAssertGreaterThan(withSpeech, sample.count / 2, "most real voice notes should contain speech")
     }
 }
