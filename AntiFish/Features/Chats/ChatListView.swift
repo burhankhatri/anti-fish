@@ -47,6 +47,9 @@ struct ChatListView: View {
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)
             .background(Color.surfaceContainerLow)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(Color.outlineVariant.opacity(0.45)).frame(height: 1)
+            }
         }
         .accessibilityIdentifier("chat.list")
         .overlay {
@@ -118,7 +121,7 @@ struct ChatRowView: View {
                 }
             }
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, Spacing.base)
         .accessibilityIdentifier("chat.row.\(chat.id)")
     }
 

@@ -37,7 +37,7 @@ struct SourceSwitcher: View {
                         Text(source.title)
                             .font(AppType.captionSm)
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 46)
                     .padding(.vertical, Spacing.xs)
                     .background(model.source == source ? Color.primaryFixed : Color.clear,
                                 in: RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
@@ -50,6 +50,9 @@ struct SourceSwitcher: View {
         }
         .padding(Spacing.xs)
         .background(Color.surfaceContainer)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.outlineVariant.opacity(0.5)).frame(height: 1)
+        }
         .animation(.snappy(duration: 0.2), value: model.source)
     }
 }

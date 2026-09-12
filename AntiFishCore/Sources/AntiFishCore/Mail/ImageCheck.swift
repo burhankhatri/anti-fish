@@ -93,13 +93,15 @@ public struct ImageCheck: Sendable {
         self.scriptURL = scriptURL
     }
 
+    /// The bridge, not deepfake-check's own CLI: that one prints a table and needs `requests`,
+    /// which a demo machine should not have to install. The bridge reuses their verdict rule.
     public static func defaultScriptURL() -> URL? {
-        if let bundled = Bundle.main.resourceURL?.appendingPathComponent("Vendor/deepfake/detect.py"),
+        if let bundled = Bundle.main.resourceURL?.appendingPathComponent("Tools/imagebridge.py"),
            FileManager.default.fileExists(atPath: bundled.path) {
             return bundled
         }
         let repo = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("Vendor/deepfake/detect.py")
+            .appendingPathComponent("Tools/imagebridge.py")
         return FileManager.default.fileExists(atPath: repo.path) ? repo : nil
     }
 
@@ -120,7 +122,7 @@ public struct ImageCheck: Sendable {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["python3", scriptURL.path, url.path, "--json"]
+        process.arguments = ["python3", scriptURL.path, url.path]
         var environment = ProcessInfo.processInfo.environment
         environment["SIGHTENGINE_USER"] = credentials.user
         environment["SIGHTENGINE_SECRET"] = credentials.secret
@@ -136,10 +138,9 @@ public struct ImageCheck: Sendable {
               let parsed = try? JSONSerialization.jsonObject(with: data) else {
             return ImageVerdict(kind: .unchecked, confidence: 0)
         }
-        let row: [String: Any]?
-        if let list = parsed as? [[String: Any]] { row = list.first }
-        else { row = parsed as? [String: Any] }
-        guard let row else { return ImageVerdict(kind: .unchecked, confidence: 0) }
+        guard let row = parsed as? [String: Any], row["error"] == nil else {
+            return ImageVerdict(kind: .unchecked, confidence: 0)
+        }
         return ImageVerdict.from(aiGenerated: row["ai_generated"] as? Double ?? 0,
                                  deepfake: row["deepfake"] as? Double ?? 0)
     }

@@ -6,7 +6,8 @@ struct ThreadView: View {
     let chat: ChatRow
 
     private var groups: [(day: Date, items: [ThreadItem])] {
-        Dictionary(grouping: model.thread, by: { Calendar.current.startOfDay(for: $0.message.date) })
+        Dictionary(grouping: model.thread.filter(\.hasSomethingToShow),
+                   by: { Calendar.current.startOfDay(for: $0.message.date) })
             .sorted { $0.key < $1.key }
             .map { (day: $0.key, items: $0.value) }
     }
@@ -18,7 +19,7 @@ struct ThreadView: View {
             if missingCount > 2 { downloadNotice }
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 6) {
+                    LazyVStack(spacing: 3) {
                         ForEach(groups, id: \.day) { group in
                             DayDivider(day: group.day)
                             ForEach(group.items) { item in
@@ -38,7 +39,7 @@ struct ThreadView: View {
                 }
             }
         }
-        .background(Color.background)
+        .background(Color.surfaceContainerLow)
         .accessibilityIdentifier("thread.view")
     }
 
@@ -84,6 +85,9 @@ struct ThreadView: View {
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
         .background(Color.surfaceContainerLowest)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.outlineVariant.opacity(0.5)).frame(height: 1)
+        }
     }
 
     private var subtitle: String {

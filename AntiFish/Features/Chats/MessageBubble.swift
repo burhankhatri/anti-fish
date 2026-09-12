@@ -9,8 +9,8 @@ struct MessageBubble: View {
     let showsSender: Bool
 
     var body: some View {
-        HStack {
-            if item.isFromMe { Spacer(minLength: 60) }
+        HStack(spacing: 0) {
+            if item.isFromMe { Spacer(minLength: 48) }
             VStack(alignment: .leading, spacing: 4) {
                 if showsSender, !item.isFromMe {
                     Text(item.senderName)
@@ -27,12 +27,15 @@ struct MessageBubble: View {
             }
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)
-            .frame(maxWidth: 440, alignment: .leading)
+            .frame(minWidth: item.needsFixedWidth ? 300 : nil,
+                   maxWidth: item.needsFixedWidth ? 340 : 460,
+                   alignment: .leading)
+            .fixedSize(horizontal: !item.needsFixedWidth, vertical: false)
             .background(background, in: RoundedRectangle(cornerRadius: Radius.bubble, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.bubble, style: .continuous)
-                    .strokeBorder(Color.errorRed.opacity(item.needsAttention ? 0.45 : 0), lineWidth: 1.5))
-            if !item.isFromMe { Spacer(minLength: 60) }
+                    .strokeBorder(borderColour, lineWidth: item.needsAttention ? 1.5 : 1))
+            if !item.isFromMe { Spacer(minLength: 48) }
         }
         .accessibilityIdentifier("bubble.\(item.id)")
     }
@@ -56,6 +59,8 @@ struct MessageBubble: View {
             Label("This message was deleted", systemImage: "slash.circle")
                 .font(AppType.caption)
                 .foregroundStyle(Color.outlineColor)
+        case .image, .gif:
+            ImageBubble(item: item)
         default:
             Label(item.message.kind.placeholder, systemImage: symbol)
                 .font(AppType.bodySm)
@@ -76,8 +81,13 @@ struct MessageBubble: View {
 
     private var background: Color {
         if item.needsAttention { return .errorContainer }
-        if item.isFromMe { return .primaryFixed }
-        return .surfaceContainerLowest
+        return item.isFromMe ? .primaryFixed : .surfaceContainerLowest
+    }
+
+    /// Incoming bubbles are white on a near-white page, so they need an edge to exist at all.
+    private var borderColour: Color {
+        if item.needsAttention { return .errorRed.opacity(0.5) }
+        return item.isFromMe ? .primaryFixedDim.opacity(0.7) : .outlineVariant.opacity(0.55)
     }
 }
 
@@ -163,5 +173,63 @@ struct VoiceNoteBubble: View {
 
     private func pillName(_ verdict: VerdictRecord) -> String {
         verdict.comparedJID.map { model.name(for: $0) } ?? item.senderName
+    }
+}
+
+/// A shared picture, and the one question worth asking about it: was this made by a machine?
+struct ImageBubble: View {
+    @Environment(AppModel.self) private var model
+    let item: ThreadItem
+
+    private var verdict: ImageVerdict? { model.imageVerdicts[item.id] }
+    private var isChecking: Bool { model.imageCheckInFlight == item.id }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            if let url = model.mediaURL(for: item), let image = NSImage(contentsOf: url) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 240, height: 180)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+            } else {
+                Label("Photo not downloaded", systemImage: "photo")
+                    .font(AppType.bodySm)
+                    .foregroundStyle(Color.onSurfaceVariant)
+            }
+
+            if let verdict {
+                HStack(spacing: 5) {
+                    Image(systemName: verdict.isAlarming ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(verdict.kind.title).font(AppType.captionSm)
+                    Text("\(Int(verdict.confidence * 100))%")
+                        .font(AppType.captionSm)
+                        .monospacedDigit()
+                        .opacity(0.75)
+                }
+                .foregroundStyle(verdict.isAlarming ? Color.onErrorContainer : Color.onSuccessContainer)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(verdict.isAlarming ? Color.errorContainer : Color.successContainer,
+                            in: Capsule())
+            } else if isChecking {
+                HStack(spacing: 5) {
+                    ProgressView().controlSize(.small)
+                    Text("checking this picture…")
+                        .font(AppType.captionSm)
+                        .foregroundStyle(Color.outlineColor)
+                }
+            } else if model.imageCheckAvailable, model.mediaURL(for: item) != nil {
+                Button {
+                    Task { await model.checkImage(item) }
+                } label: {
+                    Label("Is this real?", systemImage: "sparkle.magnifyingglass")
+                        .font(AppType.captionSm)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("image.check.\(item.id)")
+            }
+        }
     }
 }

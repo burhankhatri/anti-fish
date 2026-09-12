@@ -35,14 +35,27 @@ final class AppModel {
     var thread: [ThreadItem] = []
     var isLoadingThread = false
     var chatSearch = ""
-    var chatOrder: ChatOrder = .recent {
-        didSet { Task { try? await refreshChats() } }
-    }
+    /// Changing the order re-sorts what is already loaded. Re-reading 500 chats from WhatsApp to
+    /// answer a question about ordering made the switch feel broken.
+    var chatOrder: ChatOrder = .recent
 
     var visibleChats: [ChatRow] {
-        guard !chatSearch.isEmpty else { return chats }
+        let ordered: [ChatRow]
+        switch chatOrder {
+        case .recent:
+            ordered = chats.sorted {
+                ($0.lastMessageDate ?? .distantPast) > ($1.lastMessageDate ?? .distantPast)
+            }
+        case .mostVoice:
+            ordered = chats.sorted { a, b in
+                let av = a.summary.voiceNoteCount, bv = b.summary.voiceNoteCount
+                if av != bv { return av > bv }
+                return (a.lastMessageDate ?? .distantPast) > (b.lastMessageDate ?? .distantPast)
+            }
+        }
+        guard !chatSearch.isEmpty else { return ordered }
         let needle = chatSearch.lowercased()
-        return chats.filter { $0.displayName.lowercased().contains(needle) }
+        return ordered.filter { $0.displayName.lowercased().contains(needle) }
     }
 
     var selectedChat: ChatRow? {
@@ -259,6 +272,22 @@ final class AppModel {
     }
 
     var mailIsAvailable: Bool { mailReader.isAvailable }
+    /// What the image checker concluded, keyed by message.
+    var imageVerdicts: [Int64: ImageVerdict] = [:]
+    var imageCheckInFlight: Int64?
+
+    /// Sends one shared image to SightEngine. This is the only thing AntiFish uploads.
+    func checkImage(_ item: ThreadItem) async {
+        guard imageCheck.isConfigured, let url = mediaURL(for: item) else { return }
+        imageCheckInFlight = item.id
+        defer { imageCheckInFlight = nil }
+        let check = imageCheck
+        let verdict = await Task.detached(priority: .userInitiated) {
+            try? check.check(imageAt: url)
+        }.value
+        if let verdict { imageVerdicts[item.id] = verdict }
+    }
+
     var imageCheckAvailable: Bool { imageCheck.isConfigured }
     var imageCheckReason: String { imageCheck.unavailableReason }
 
@@ -267,7 +296,7 @@ final class AppModel {
     func refreshChats() async throws {
         guard let coordinator else { return }
         let hidden = Set((try? db?.hiddenChatJIDs()) ?? [])
-        let summaries = chatOrder.apply(to: try await coordinator.chats().filter { !hidden.contains($0.jid) })
+        let summaries = try await coordinator.chats().filter { !hidden.contains($0.jid) }
         let verdicts = Dictionary(grouping: try db?.verdicts(limit: 500) ?? [], by: \.chatJID)
 
         var rows: [ChatRow] = []
