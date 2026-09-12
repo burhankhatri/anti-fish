@@ -4,17 +4,32 @@ import XCTest
 final class ChatOrderingTests: XCTestCase {
     private func store() throws -> ChatStore { try ChatStore(url: try FixtureDB.standardPair().chat) }
 
-    /// Demoing the product means finding the chats that actually have voice in them, so the list
-    /// can be ordered by how much evidence each chat carries rather than by recency.
-    func testEachChatKnowsHowMuchVoiceItHas() throws {
+    /// Only 7% of the voice notes in a real WhatsApp database have their audio on this Mac:
+    /// WhatsApp Desktop downloads media from the day it was linked, not the whole history.
+    /// A chat's evidence is therefore what can actually be played, not what the database lists.
+    func testChatEvidenceCountsOnlyPlayableNotes() throws {
         let chats = try ChatListQuery.fetch(store())
         let oneToOne = try XCTUnwrap(chats.first { $0.jid == "111@lid" })
         let group = try XCTUnwrap(chats.first { $0.jid == "200@g.us" })
         let quiet = try XCTUnwrap(chats.first { $0.jid == "333@lid" })
-        // Session 1 has three incoming voice notes (1000, 1002) plus one outgoing (1003).
-        XCTAssertEqual(oneToOne.voiceNoteCount, 2, "only notes from other people count as evidence")
+        // Session 1 has two incoming voice notes: 1000 has audio, 1002 has not downloaded.
+        XCTAssertEqual(oneToOne.voiceNoteCount, 1, "a note with no audio is not evidence")
+        XCTAssertEqual(oneToOne.voiceNoteTotal, 2, "but the app still knows it exists")
         XCTAssertEqual(group.voiceNoteCount, 1)
+        XCTAssertEqual(group.voiceNoteTotal, 1)
         XCTAssertEqual(quiet.voiceNoteCount, 0)
+        XCTAssertEqual(quiet.voiceNoteTotal, 0)
+    }
+
+    func testAChatWithNoPlayableAudioSortsBelowOneWithSome() {
+        let loud = ChatSummary(sessionPK: 1, jid: "loud", savedName: nil, isGroup: false, isArchived: false,
+                               unreadCount: 0, lastMessageDate: Date(timeIntervalSinceReferenceDate: 1),
+                               voiceNoteCount: 3, voiceNoteTotal: 5)
+        // 400 notes in the database, none of them downloaded: nothing to demo here.
+        let empty = ChatSummary(sessionPK: 2, jid: "empty", savedName: nil, isGroup: false, isArchived: false,
+                                unreadCount: 0, lastMessageDate: Date(timeIntervalSinceReferenceDate: 2),
+                                voiceNoteCount: 0, voiceNoteTotal: 400)
+        XCTAssertEqual(ChatOrder.mostVoice.apply(to: [empty, loud]).map(\.jid), ["loud", "empty"])
     }
 
     func testSortingByEvidencePutsTheLoudestChatsFirst() throws {
@@ -32,10 +47,10 @@ final class ChatOrderingTests: XCTestCase {
     func testEvidenceOrderBreaksTiesByRecency() {
         let old = ChatSummary(sessionPK: 1, jid: "a", savedName: nil, isGroup: false, isArchived: false,
                               unreadCount: 0, lastMessageDate: Date(timeIntervalSinceReferenceDate: 1),
-                              voiceNoteCount: 4)
+                              voiceNoteCount: 4, voiceNoteTotal: 4)
         let new = ChatSummary(sessionPK: 2, jid: "b", savedName: nil, isGroup: false, isArchived: false,
                               unreadCount: 0, lastMessageDate: Date(timeIntervalSinceReferenceDate: 2),
-                              voiceNoteCount: 4)
+                              voiceNoteCount: 4, voiceNoteTotal: 4)
         XCTAssertEqual(ChatOrder.mostVoice.apply(to: [old, new]).map(\.jid), ["b", "a"])
     }
 
