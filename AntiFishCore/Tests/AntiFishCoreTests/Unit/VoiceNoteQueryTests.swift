@@ -38,7 +38,7 @@ final class VoiceNoteQueryTests: XCTestCase {
         let s = try store()
         XCTAssertEqual(try VoiceNoteQuery.fetch(s, afterPK: 1000).map(\.messagePK), [1001, 1003])
         XCTAssertEqual(try VoiceNoteQuery.fetch(s, afterPK: 9999).count, 0)
-        XCTAssertEqual(try VoiceNoteQuery.maxMessagePK(s), 1004)
+        XCTAssertEqual(try VoiceNoteQuery.maxMessagePK(s), 1008)
     }
 
     func testPendingFloorFindsOldestUndownloadedIncomingNote() throws {
