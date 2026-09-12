@@ -150,6 +150,20 @@ public struct ChatMessage: Sendable, Equatable, Identifiable, Hashable {
 
     public var id: Int64 { messagePK }
 
+    /// Whether this row is worth drawing. A text message with no text is an edit or a tombstone;
+    /// drawing it leaves an empty bubble and a hole in the conversation.
+    public var hasSomethingToShow: Bool {
+        switch kind {
+        case .text, .link, .systemEvent, .other:
+            return !(text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        default:
+            return true
+        }
+    }
+
+    /// A waveform needs consistent room whatever the note says. Text should hug its content.
+    public var needsFixedWidth: Bool { kind == .voiceNote }
+
     public init(messagePK: Int64, kind: MessageKind, text: String?, isFromMe: Bool, senderJID: String,
                 date: Date, durationSeconds: Int, relativeMediaPath: String?) {
         self.messagePK = messagePK

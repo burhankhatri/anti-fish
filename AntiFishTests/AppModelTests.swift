@@ -98,26 +98,23 @@ final class AppModelTests: XCTestCase {
 
     // MARK: Score meter maths
 
-    func testMeterPlacesTheScoreBetweenTheThresholds() {
-        let t = Thresholds(reject: 0.2, match: 0.6)
-        XCTAssertEqual(ScoreMeter.band(for: 0.1, thresholds: t), .mismatch)
-        XCTAssertEqual(ScoreMeter.band(for: 0.4, thresholds: t), .inconclusive)
-        XCTAssertEqual(ScoreMeter.band(for: 0.8, thresholds: t), .match)
-        XCTAssertEqual(ScoreMeter.band(for: 0.2, thresholds: t), .mismatch, "the edge belongs to mismatch")
-        XCTAssertEqual(ScoreMeter.band(for: 0.6, thresholds: t), .match, "the edge belongs to match")
+    func testMeterPlacesTheScoreOnOneSideOfTheLine() {
+        let t = Thresholds(decision: 0.4)
+        XCTAssertEqual(ScoreMeter.band(for: 0.1, thresholds: t), .below)
+        XCTAssertEqual(ScoreMeter.band(for: 0.39, thresholds: t), .below)
+        XCTAssertEqual(ScoreMeter.band(for: 0.4, thresholds: t), .above, "the line itself counts as a match")
+        XCTAssertEqual(ScoreMeter.band(for: 0.9, thresholds: t), .above)
     }
 
-    /// Thresholds are learned, so they can be negative. The meter still has to place them.
-    func testMeterHandlesNegativeThresholds() {
-        let t = Thresholds(reject: -0.03, match: 0.63, calibrated: true)
+    /// The learned line can be negative, and the meter still has to place it sensibly.
+    func testMeterHandlesANegativeLine() {
+        let t = Thresholds(decision: -0.03, calibrated: true)
         XCTAssertEqual(ScoreMeter.position(of: -1, thresholds: t), 0, accuracy: 0.001)
         XCTAssertEqual(ScoreMeter.position(of: 1, thresholds: t), 1, accuracy: 0.001)
         XCTAssertEqual(ScoreMeter.position(of: 0, thresholds: t), 0.5, accuracy: 0.001)
-        let rejectAt = ScoreMeter.position(of: t.reject, thresholds: t)
-        let matchAt = ScoreMeter.position(of: t.match, thresholds: t)
-        XCTAssertLessThan(rejectAt, matchAt)
-        XCTAssertGreaterThan(rejectAt, 0)
-        XCTAssertLessThan(matchAt, 1)
+        let line = ScoreMeter.position(of: t.decision, thresholds: t)
+        XCTAssertGreaterThan(line, 0)
+        XCTAssertLessThan(line, 1)
     }
 
     func testMeterClampsOutOfRangeScores() {

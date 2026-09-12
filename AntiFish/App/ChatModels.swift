@@ -42,4 +42,9 @@ struct ThreadItem: Identifiable, Hashable, Sendable {
     }
 
     var needsAttention: Bool { verdictColour == .red }
+
+    var hasSomethingToShow: Bool { message.hasSomethingToShow }
+
+    /// A verdict underneath needs the same room a waveform does.
+    var needsFixedWidth: Bool { message.needsFixedWidth || verdict != nil }
 }
