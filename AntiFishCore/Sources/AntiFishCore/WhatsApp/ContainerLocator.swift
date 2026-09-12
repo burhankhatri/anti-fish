@@ -15,7 +15,9 @@ public struct ContainerLocator: Sendable {
 
     public var chatStorageURL: URL { root.appendingPathComponent("ChatStorage.sqlite") }
     public var contactsURL: URL { root.appendingPathComponent("ContactsV2.sqlite") }
-    public var mediaRoot: URL { root.appendingPathComponent("Message/Media", isDirectory: true) }
+    /// Media paths in ChatStorage.sqlite are relative to this directory, not to `root`.
+    public var messageRoot: URL { root.appendingPathComponent("Message", isDirectory: true) }
+    public var mediaRoot: URL { messageRoot.appendingPathComponent("Media", isDirectory: true) }
 
     /// True when WhatsApp Desktop has ever been linked on this Mac.
     public var isInstalled: Bool {
@@ -29,7 +31,8 @@ public struct ContainerLocator: Sendable {
         return (try? handle.read(upToCount: 1)) != nil
     }
 
+    /// Resolves a `ZMEDIALOCALPATH` value (for example `Media/111@lid/a/b/n1.opus`) to a file URL.
     public func mediaURL(relativePath: String) -> URL {
-        root.appendingPathComponent(relativePath)
+        messageRoot.appendingPathComponent(relativePath)
     }
 }
