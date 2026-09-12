@@ -192,11 +192,16 @@ struct ImageBubble: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             if let url = model.mediaURL(for: item), let image = NSImage(contentsOf: url) {
+                // scaledToFill draws a picture larger than its frame, and the overflow stays
+                // hit-testable: it sat on top of the button underneath and swallowed every click.
+                // The picture is decoration, so it takes no clicks at all.
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFill()
                     .frame(width: 240, height: 180)
+                    .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+                    .allowsHitTesting(false)
             } else {
                 Label("Photo not downloaded", systemImage: "photo")
                     .font(AppType.bodySm)
@@ -233,6 +238,8 @@ struct ImageBubble: View {
                 } label: {
                     Label("Is this real?", systemImage: "sparkle.magnifyingglass")
                         .font(AppType.captionSm)
+                        .padding(.vertical, 3)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
                 .accessibilityIdentifier("image.check.\(item.id)")
@@ -297,6 +304,8 @@ struct VideoBubble: View {
                 } label: {
                     Label("Is this real?", systemImage: "sparkle.magnifyingglass")
                         .font(AppType.captionSm)
+                        .padding(.vertical, 3)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
                 .accessibilityIdentifier("video.check.\(item.id)")
