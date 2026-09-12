@@ -129,7 +129,9 @@ struct VoiceNoteBubble: View {
                     Text("checking this voice…").font(.caption).foregroundStyle(.tertiary)
                 }
             } else if item.message.relativeMediaPath == nil {
-                Text("Audio not downloaded yet").font(.caption).foregroundStyle(.tertiary)
+                Label("No audio on this Mac — nothing to check", systemImage: "waveform.slash")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
         }
         .task(id: item.id) {

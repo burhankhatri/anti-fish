@@ -89,6 +89,13 @@ struct ChatRowView: View {
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                             .labelStyle(.titleAndIcon)
+                            .help("\(chat.summary.voiceNoteCount) of \(chat.summary.voiceNoteTotal) voice notes have audio on this Mac")
+                    } else if chat.summary.hasNoPlayableAudio {
+                        Label("\(chat.summary.voiceNoteTotal)", systemImage: "waveform.slash")
+                            .font(.caption2)
+                            .foregroundStyle(.quaternary)
+                            .labelStyle(.titleAndIcon)
+                            .help("\(chat.summary.voiceNoteTotal) voice notes, none downloaded to this Mac")
                     }
                     if chat.attentionCount > 0 {
                         Image(systemName: "exclamationmark.triangle.fill")

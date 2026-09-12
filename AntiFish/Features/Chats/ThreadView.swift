@@ -15,6 +15,7 @@ struct ThreadView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if missingCount > 2 { downloadNotice }
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 6) {
@@ -41,6 +42,26 @@ struct ThreadView: View {
         .accessibilityIdentifier("thread.view")
     }
 
+    private var missingCount: Int {
+        model.thread.filter { $0.isVoiceNote && !$0.isFromMe && $0.message.relativeMediaPath == nil }.count
+    }
+
+    /// WhatsApp Desktop only fetches media from the day it was linked, so most older notes have no
+    /// audio here at all. Saying so is better than showing a row of silent bubbles.
+    private var downloadNotice: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.circle.dotted").foregroundStyle(.secondary)
+            Text("\(missingCount) older voice notes in this chat have no audio on this Mac. WhatsApp Desktop only downloads media from the day it was linked, so AntiFish can't listen to them.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.quaternary.opacity(0.35))
+    }
+
     private var header: some View {
         HStack(spacing: 10) {
             Avatar(url: chat.avatarURL, name: chat.displayName, size: 32)
@@ -60,12 +81,19 @@ struct ThreadView: View {
     }
 
     private var subtitle: String {
-        let checked = model.thread.filter { $0.verdict != nil }.count
-        let notes = model.thread.filter { $0.isVoiceNote && !$0.isFromMe }.count
-        guard notes > 0 else { return chat.isGroup ? "Group" : "No voice notes here" }
+        let incoming = model.thread.filter { $0.isVoiceNote && !$0.isFromMe }
+        guard !incoming.isEmpty else { return chat.isGroup ? "Group" : "No voice notes here" }
         let flagged = model.thread.filter(\.needsAttention).count
         if flagged > 0 { return "\(flagged) voice note\(flagged == 1 ? "" : "s") to look at" }
-        return "\(checked) of \(notes) voice notes checked"
+        let playable = incoming.filter { $0.message.relativeMediaPath != nil }
+        let checked = playable.filter { $0.verdict != nil }.count
+        if playable.isEmpty {
+            return "\(incoming.count) voice notes, none downloaded to this Mac"
+        }
+        if playable.count < incoming.count {
+            return "\(checked) of \(playable.count) checked · \(incoming.count - playable.count) not downloaded"
+        }
+        return "\(checked) of \(playable.count) voice notes checked"
     }
 }
 

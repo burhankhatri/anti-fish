@@ -10,14 +10,18 @@ public struct ChatSummary: Sendable, Equatable, Identifiable, Hashable {
     public let isArchived: Bool
     public let unreadCount: Int
     public let lastMessageDate: Date?
-    /// Voice notes other people sent in this chat. The app's evidence, and what makes a chat
-    /// worth opening.
+    /// Voice notes from other people whose audio is on this Mac. This is the app's evidence:
+    /// a note WhatsApp never downloaded cannot be listened to, so it cannot be checked.
     public let voiceNoteCount: Int
+    /// Every incoming voice note the database knows about, downloaded or not. Usually far larger:
+    /// WhatsApp Desktop only fetches media from the day it was linked.
+    public let voiceNoteTotal: Int
 
     public var id: Int64 { sessionPK }
 
     public init(sessionPK: Int64, jid: String, savedName: String?, isGroup: Bool, isArchived: Bool,
-                unreadCount: Int, lastMessageDate: Date?, voiceNoteCount: Int = 0) {
+                unreadCount: Int, lastMessageDate: Date?, voiceNoteCount: Int = 0,
+                voiceNoteTotal: Int = 0) {
         self.sessionPK = sessionPK
         self.jid = jid
         self.savedName = savedName
@@ -26,7 +30,11 @@ public struct ChatSummary: Sendable, Equatable, Identifiable, Hashable {
         self.unreadCount = unreadCount
         self.lastMessageDate = lastMessageDate
         self.voiceNoteCount = voiceNoteCount
+        self.voiceNoteTotal = voiceNoteTotal
     }
+
+    /// True when the database lists voice notes here but none of them can be played.
+    public var hasNoPlayableAudio: Bool { voiceNoteCount == 0 && voiceNoteTotal > 0 }
 }
 
 /// How the chat list is ordered.
@@ -67,7 +75,11 @@ public enum ChatListQuery {
                    (s.ZGROUPINFO IS NOT NULL) AS isGroup, s.ZARCHIVED AS archived,
                    s.ZUNREADCOUNT AS unread, s.ZLASTMESSAGEDATE AS lastDate,
                    (SELECT COUNT(*) FROM ZWAMESSAGE m
-                     WHERE m.ZCHATSESSION = s.Z_PK AND m.ZMESSAGETYPE = 3 AND m.ZISFROMME = 0) AS voiceNotes
+                      JOIN ZWAMEDIAITEM mi ON mi.Z_PK = m.ZMEDIAITEM
+                      WHERE m.ZCHATSESSION = s.Z_PK AND m.ZMESSAGETYPE = 3 AND m.ZISFROMME = 0
+                        AND mi.ZMEDIALOCALPATH IS NOT NULL) AS playableNotes,
+                   (SELECT COUNT(*) FROM ZWAMESSAGE m
+                     WHERE m.ZCHATSESSION = s.Z_PK AND m.ZMESSAGETYPE = 3 AND m.ZISFROMME = 0) AS totalNotes
             FROM ZWACHATSESSION s
             WHERE s.ZCONTACTJID IS NOT NULL AND COALESCE(s.ZHIDDEN, 0) = 0
             ORDER BY COALESCE(s.ZLASTMESSAGEDATE, 0) DESC
@@ -80,7 +92,8 @@ public enum ChatListQuery {
                         isArchived: row.bool("archived") ?? false,
                         unreadCount: Int(row.int("unread") ?? 0),
                         lastMessageDate: row.double("lastDate").map(Date.init(timeIntervalSinceReferenceDate:)),
-                        voiceNoteCount: Int(row.int("voiceNotes") ?? 0))
+                        voiceNoteCount: Int(row.int("playableNotes") ?? 0),
+                        voiceNoteTotal: Int(row.int("totalNotes") ?? 0))
         }
     }
 }

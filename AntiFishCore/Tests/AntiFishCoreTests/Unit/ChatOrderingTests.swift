@@ -33,9 +33,9 @@ final class ChatOrderingTests: XCTestCase {
     }
 
     func testSortingByEvidencePutsTheLoudestChatsFirst() throws {
-        let chats = try ChatListQuery.fetch(store())
-        XCTAssertEqual(ChatOrder.mostVoice.apply(to: chats).map(\.jid),
-                       ["111@lid", "200@g.us", "333@lid"])
+        let ordered = ChatOrder.mostVoice.apply(to: try ChatListQuery.fetch(store()))
+        XCTAssertEqual(ordered.map(\.voiceNoteCount), [1, 1, 0], "playable counts descend")
+        XCTAssertEqual(ordered.last?.jid, "333@lid", "the chat with nothing to play comes last")
     }
 
     func testSortingByRecencyIsUnchanged() throws {
