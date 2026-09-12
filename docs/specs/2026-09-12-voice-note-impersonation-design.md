@@ -283,8 +283,10 @@ nothing from it is ever committed.
   intentful-ui frame-diff loop.
 - **Guarantees:** tests write only under `NSTemporaryDirectory()`.
   `.gitignore` covers `*.opus`, `*.m4a`, `*.sqlite*`, `Models/*.onnx`,
-  `DerivedData/`, `.worktrees/`. A pre-commit hook greps staged files for
-  `@lid`, `@s.whatsapp.net` and `Group Containers/` and blocks the commit.
+  `DerivedData/`, `.worktrees/`. A pre-commit hook blocks the commit if any
+  staged text file contains a real-looking JID (nine or more digits directly
+  before `@lid` or `@s.whatsapp.net`); test fixtures use short fake JIDs such
+  as `111@lid`, and source may legitimately mention the container path.
 - `testing.md` documents `make test` (unit), `ANTIFISH_REAL_WA=1 make
   test-integration`, and `make test-ui`.
 
