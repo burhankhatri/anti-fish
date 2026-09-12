@@ -48,17 +48,34 @@ public enum Verifier {
                            best: best, reason: nil, explanation: text)
 
         case .unknown:
-            let claimed = input.claimedJID.flatMap { jid in input.comparisons.first { $0.jid == jid } }
-            if let claimed, claimed.score < t.decision {
+            // When the user names someone, that is the question. Answering about whoever happens
+            // to score highest instead told one user "This really is Shifa" when they had asked
+            // about Momina.
+            if let claimedJID = input.claimedJID {
+                guard let claimed = input.comparisons.first(where: { $0.jid == claimedJID }) else {
+                    return .unverifiable(.notEnrolled,
+                                         explanation: "There isn't enough of \(name(claimedJID))'s voice saved to compare against.")
+                }
+                if claimed.score >= t.decision {
+                    var text = "This does sound like \(name(claimed.jid)). The number is not saved, so confirm on the number you already have."
+                    if best.jid != claimed.jid, best.score > claimed.score + 0.1 {
+                        text += " It sounds even more like \(name(best.jid))."
+                    }
+                    return Verdict(kind: .matchesUnsavedNumber, colour: .amber, comparedJID: claimed.jid,
+                                   score: claimed.score, best: best, reason: nil, explanation: text)
+                }
+                var text = "This does not sound like \(name(claimed.jid))."
+                if best.jid != claimed.jid, best.score >= t.decision {
+                    text += " It sounds more like \(name(best.jid))."
+                }
                 return Verdict(kind: .impersonationSuspected, colour: .red, comparedJID: claimed.jid,
-                               score: claimed.score, best: best, reason: nil,
-                               explanation: "Calls itself \(name(claimed.jid)), but it does not sound like \(name(claimed.jid)).")
+                               score: claimed.score, best: best, reason: nil, explanation: text)
             }
+
             if best.score >= t.decision {
-                var text = "Sounds like \(name(best.jid)), from a number you have not saved. Check with \(name(best.jid)) on their own number first."
-                if let claimed, claimed.jid != best.jid { text += " It calls itself \(name(claimed.jid))." }
                 return Verdict(kind: .matchesUnsavedNumber, colour: .amber, comparedJID: best.jid,
-                               score: best.score, best: best, reason: nil, explanation: text)
+                               score: best.score, best: best, reason: nil,
+                               explanation: "Sounds like \(name(best.jid)), from a number you have not saved. Check with \(name(best.jid)) on their own number first.")
             }
             return Verdict(kind: .unknownVoice, colour: .grey, comparedJID: best.jid, score: best.score,
                            best: best, reason: nil,

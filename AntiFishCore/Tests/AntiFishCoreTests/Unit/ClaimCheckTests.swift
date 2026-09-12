@@ -31,19 +31,22 @@ final class ClaimCheckTests: XCTestCase {
     }
 
     /// Claiming to be one person while sounding like another is the most useful thing the app can
-    /// say, so the verdict has to name both.
+    /// say, so the verdict names both — but it answers about the person who was asked about.
     func testAClaimThatMatchesSomeoneElseNamesBoth() {
         let v = Verifier.verdict(input(claim: "abdul@lid", scores: ["abdul@lid": 0.4, "karim@lid": 0.82]),
                                  thresholds: t)
         XCTAssertEqual(v.kind, .matchesUnsavedNumber)
-        XCTAssertEqual(v.comparedJID, "karim@lid")
-        XCTAssertTrue(v.explanation.contains("Karim"))
+        XCTAssertEqual(v.comparedJID, "abdul@lid", "the question was about Abdul")
         XCTAssertTrue(v.explanation.contains("Abdul Rehman"))
+        XCTAssertTrue(v.explanation.contains("Karim"), "and the closer match is still mentioned")
     }
 
+    /// Naming someone with no baseline cannot be answered. Reporting on whoever scored highest
+    /// instead is how the app came to answer "This really is Shifa" to a question about Momina.
     func testCheckingAClaimAgainstSomeoneWithNoFingerprintSaysSo() {
         let v = Verifier.verdict(input(claim: "ghost@lid", scores: ["abdul@lid": 0.1]), thresholds: t)
-        XCTAssertEqual(v.kind, .unknownVoice, "a claim we cannot test is not an accusation")
+        XCTAssertEqual(v.kind, .unverifiable)
+        XCTAssertEqual(v.reason, "notEnrolled", "say we cannot answer, not something about someone else")
     }
 
     func testAShortClipStillCannotAccuse() {

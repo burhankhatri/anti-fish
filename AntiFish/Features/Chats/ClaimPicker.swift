@@ -87,10 +87,11 @@ struct ClaimPicker: View {
     private func headline(_ verdict: Verdict) -> String {
         let who = verdict.comparedJID.map { model.name(for: $0) } ?? "them"
         switch verdict.kind {
-        case .impersonationSuspected, .takeoverSuspected: return "They are not \(who)"
-        case .matchesUnsavedNumber, .verified: return "This really is \(who)"
+        case .impersonationSuspected, .takeoverSuspected: return "Not \(who)"
+        case .verified: return "This is \(who)"
+        case .matchesUnsavedNumber: return "Sounds like \(who)"
         case .unknownVoice: return "Not a voice you know"
-        case .unverifiable, .unclear: return "Can't tell from this clip"
+        case .unverifiable, .unclear: return "Can't tell"
         }
     }
 }
