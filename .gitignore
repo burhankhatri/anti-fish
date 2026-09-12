@@ -19,3 +19,6 @@ AntiFish/Resources/Models/*.onnx
 # Worktrees and OS noise
 .worktrees/
 .DS_Store
+
+# SwiftPM
+AntiFishCore/.build/
