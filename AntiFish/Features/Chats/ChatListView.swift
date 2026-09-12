@@ -66,7 +66,7 @@ struct ChatRowView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Avatar(url: chat.avatarURL, name: chat.displayName, size: 40)
+            Avatar(url: chat.avatarURL, name: chat.displayName, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     if chat.isGroup {

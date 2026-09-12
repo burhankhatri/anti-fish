@@ -4,7 +4,7 @@ import SwiftUI
 struct Avatar: View {
     let url: URL?
     let name: String
-    var size: CGFloat = 32
+    var size: CGFloat = 38
 
     var body: some View {
         Group {

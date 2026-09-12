@@ -12,7 +12,7 @@ struct AntiFishApp: App {
                 .preferredColorScheme(.light)
                 .tint(Color.primaryContainer)
         }
-        .defaultSize(width: 1000, height: 700)
+        .defaultSize(width: 1180, height: 820)
         .defaultPosition(.topLeading)
 
         Window("Flagged voice notes", id: "flagged") {

@@ -65,7 +65,7 @@ struct ThreadView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            Avatar(url: chat.avatarURL, name: chat.displayName, size: 32)
+            Avatar(url: chat.avatarURL, name: chat.displayName, size: 38)
             VStack(alignment: .leading, spacing: 1) {
                 Text(chat.displayName)
                     .font(AppType.bodyMedium)

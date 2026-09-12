@@ -26,12 +26,12 @@ enum AppType {
     static var headingLg: Font { AppFont.font(.bold, size: 40) }
     static var heading: Font { AppFont.font(.bold, size: 32) }
     static var headingSm: Font { AppFont.font(.bold, size: 24) }
-    static var title: Font { AppFont.font(.bold, size: 18) }
-    static var subheading: Font { AppFont.font(.medium, size: 18) }
-    static var body: Font { AppFont.font(.regular, size: 16) }
-    static var bodyMedium: Font { AppFont.font(.medium, size: 16) }
-    static var bodySm: Font { AppFont.font(.regular, size: 14) }
-    static var bodySmMedium: Font { AppFont.font(.medium, size: 14) }
-    static var caption: Font { AppFont.font(.medium, size: 12) }
-    static var captionSm: Font { AppFont.font(.medium, size: 11) }
+    static var title: Font { AppFont.font(.bold, size: 20) }
+    static var subheading: Font { AppFont.font(.medium, size: 19) }
+    static var body: Font { AppFont.font(.regular, size: 17) }
+    static var bodyMedium: Font { AppFont.font(.medium, size: 17) }
+    static var bodySm: Font { AppFont.font(.regular, size: 15) }
+    static var bodySmMedium: Font { AppFont.font(.medium, size: 15) }
+    static var caption: Font { AppFont.font(.regular, size: 13) }
+    static var captionSm: Font { AppFont.font(.medium, size: 12) }
 }

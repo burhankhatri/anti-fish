@@ -61,6 +61,8 @@ struct MessageBubble: View {
                 .foregroundStyle(Color.outlineColor)
         case .image, .gif:
             ImageBubble(item: item)
+        case .video:
+            VideoBubble(item: item)
         default:
             Label(item.message.kind.placeholder, systemImage: symbol)
                 .font(AppType.bodySm)
@@ -229,6 +231,68 @@ struct ImageBubble: View {
                 }
                 .buttonStyle(.borderless)
                 .accessibilityIdentifier("image.check.\(item.id)")
+            }
+        }
+    }
+}
+
+/// A shared clip, and whether the frames inside it were made by a machine.
+struct VideoBubble: View {
+    @Environment(AppModel.self) private var model
+    let item: ThreadItem
+
+    private var verdict: VideoVerdict? { model.videoVerdicts[item.id] }
+    private var isChecking: Bool { model.videoCheckInFlight == item.id }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "play.rectangle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Color.primaryContainer)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Video").font(AppType.bodySm).foregroundStyle(Color.onSurface)
+                    if item.message.durationSeconds > 0 {
+                        Text("\(item.message.durationSeconds)s")
+                            .font(AppType.captionSm)
+                            .foregroundStyle(Color.outlineColor)
+                    }
+                }
+            }
+
+            if let verdict {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 5) {
+                        Image(systemName: verdict.isAlarming
+                              ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(verdict.image.kind.title).font(AppType.captionSm)
+                    }
+                    .foregroundStyle(verdict.isAlarming ? Color.onErrorContainer : Color.onSuccessContainer)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(verdict.isAlarming ? Color.errorContainer : Color.successContainer,
+                                in: Capsule())
+                    Text(verdict.summary)
+                        .font(AppType.captionSm)
+                        .foregroundStyle(Color.outlineColor)
+                }
+            } else if isChecking {
+                HStack(spacing: 5) {
+                    ProgressView().controlSize(.small)
+                    Text("checking the frames…")
+                        .font(AppType.captionSm)
+                        .foregroundStyle(Color.outlineColor)
+                }
+            } else if model.videoCheckAvailable, model.mediaURL(for: item) != nil {
+                Button {
+                    Task { await model.checkVideo(item) }
+                } label: {
+                    Label("Is this real?", systemImage: "sparkle.magnifyingglass")
+                        .font(AppType.captionSm)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("video.check.\(item.id)")
             }
         }
     }

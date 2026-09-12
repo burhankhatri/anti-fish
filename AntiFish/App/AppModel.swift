@@ -78,6 +78,7 @@ final class AppModel {
     private var previews: [Int64: String] = [:]
     private let mailReader = MailReader()
     private let imageCheck = ImageCheck()
+    private let videoCheck = VideoCheck()
 
     init(locator: ContainerLocator = AppModel.defaultLocator,
          databaseURL: URL? = AppModel.defaultDatabaseURL,
@@ -288,6 +289,23 @@ final class AppModel {
         if let verdict { imageVerdicts[item.id] = verdict }
     }
 
+    /// What the video checker concluded, keyed by message.
+    var videoVerdicts: [Int64: VideoVerdict] = [:]
+    var videoCheckInFlight: Int64?
+
+    /// Pulls a few frames out of a shared clip and checks each one. Those frames are uploaded.
+    func checkVideo(_ item: ThreadItem) async {
+        guard videoCheck.isConfigured, let url = mediaURL(for: item) else { return }
+        videoCheckInFlight = item.id
+        defer { videoCheckInFlight = nil }
+        let check = videoCheck
+        let verdict = await Task.detached(priority: .userInitiated) {
+            try? check.check(videoAt: url)
+        }.value
+        if let verdict = verdict ?? nil { videoVerdicts[item.id] = verdict }
+    }
+
+    var videoCheckAvailable: Bool { videoCheck.isConfigured }
     var imageCheckAvailable: Bool { imageCheck.isConfigured }
     var imageCheckReason: String { imageCheck.unavailableReason }
 
