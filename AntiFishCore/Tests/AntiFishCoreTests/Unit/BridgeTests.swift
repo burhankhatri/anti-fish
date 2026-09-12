@@ -41,15 +41,29 @@ final class MailReaderTests: XCTestCase {
 /// The image check is the one part of AntiFish that uses the network, so it stays off until
 /// credentials are present and says so plainly.
 final class ImageCheckTests: XCTestCase {
-    func testDisabledWithoutCredentials() {
-        let check = ImageCheck(credentials: nil)
+    private func script() throws -> URL {
+        let url = try TestEnv.tempDir().appendingPathComponent("detect.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: url)
+        return url
+    }
+
+    func testDisabledWithoutCredentials() throws {
+        let check = ImageCheck(credentials: nil, scriptURL: try script())
         XCTAssertFalse(check.isConfigured)
         XCTAssertTrue(check.unavailableReason.contains("SightEngine"))
     }
 
-    func testConfiguredWithCredentials() {
-        let check = ImageCheck(credentials: .init(user: "u", secret: "s"))
+    func testDisabledWithoutTheScript() {
+        let check = ImageCheck(credentials: .init(user: "u", secret: "s"), scriptURL: nil)
+        XCTAssertFalse(check.isConfigured)
+        XCTAssertTrue(check.unavailableReason.contains("missing"))
+    }
+
+    /// Both halves are needed: keys alone cannot run anything, and the script alone has no account.
+    func testConfiguredWithBoth() throws {
+        let check = ImageCheck(credentials: .init(user: "u", secret: "s"), scriptURL: try script())
         XCTAssertTrue(check.isConfigured)
+        XCTAssertTrue(check.unavailableReason.isEmpty)
     }
 
     func testCredentialsLoadFromAnEnvFile() throws {
