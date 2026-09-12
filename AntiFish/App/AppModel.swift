@@ -210,8 +210,12 @@ final class AppModel {
             protectedJIDs = protected
             statusLine = "Watching · \(protected.count) protected · \(count) enrolled"
         case .verdict(let record):
+            applyVerdictToThread(record)
+            // Rebuilding the feed on every verdict made opening a chat rebuild it thirty times.
+            // Only a verdict worth interrupting someone over is worth that cost now.
+            guard record.isRed else { return }
             try? await refreshFeed()
-            if let item = feed.first(where: { $0.id == record.messagePK }), item.needsAttention {
+            if let item = feed.first(where: { $0.id == record.messagePK }) {
                 lastNeedingAttention = item
                 notifier.notify(item)
             }
@@ -280,10 +284,15 @@ final class AppModel {
     var mailIsAvailable: Bool { mailReader.isAvailable }
     /// What the words in a message or picture suggest. Local, instant, never runs out.
     var scamAssessments: [Int64: ScamAssessment] = [:]
+    /// Rows already looked at. Without this a clean picture was read again every time it scrolled
+    /// back into view, which is what made the list stutter.
+    private var assessedIDs: Set<Int64> = []
 
     /// Judges a message by what it says, and a picture by the words inside it.
     func assessText(_ item: ThreadItem, senderIsKnown: Bool) async {
-        if scamAssessments[item.id] != nil { return }
+        guard !assessedIDs.contains(item.id) else { return }
+        assessedIDs.insert(item.id)
+
         if let text = item.message.text, !text.isEmpty {
             let assessment = ScamText.assess(text, senderIsKnown: senderIsKnown)
             if assessment.isWorrying { scamAssessments[item.id] = assessment }
@@ -379,6 +388,15 @@ final class AppModel {
         await verifyUnjudgedNotes(in: chat)
     }
 
+    /// Updates the one row a verdict belongs to. Reloading the whole thread here threw away the
+    /// reader's scroll position thirty times over.
+    private func applyVerdictToThread(_ record: VerdictRecord) {
+        guard let index = thread.firstIndex(where: { $0.id == record.messagePK }) else { return }
+        let existing = thread[index]
+        thread[index] = ThreadItem(message: existing.message, senderName: existing.senderName,
+                                   verdict: record)
+    }
+
     func refreshThread() async throws {
         guard let coordinator, let sessionPK = selectedChatPK else { return }
         let messages = try await coordinator.messages(sessionPK: sessionPK)
@@ -412,8 +430,9 @@ final class AppModel {
                                        durationSeconds: item.message.durationSeconds,
                                        relativeMediaPath: path,
                                        chatIsGroup: chat.isGroup)
-            _ = try? await coordinator.verify(note)
-            if selectedChatPK == chat.id { try? await refreshThread() }
+            guard let record = try? await coordinator.verify(note) else { continue }
+            guard selectedChatPK == chat.id else { return }
+            applyVerdictToThread(record)
         }
         _ = db
     }

@@ -31,11 +31,15 @@ struct ThreadView: View {
                     .padding(.horizontal, Spacing.md)
                     .padding(.vertical, Spacing.sm)
                 }
-                .onChange(of: model.thread.count) {
-                    if let last = model.thread.last { proxy.scrollTo(last.id, anchor: .bottom) }
+                .onChange(of: chat.id) { previous, current in
+                    guard ThreadUpdate.shouldScrollToBottom(previousChat: previous, newChat: current),
+                          let last = model.thread.last else { return }
+                    proxy.scrollTo(last.id, anchor: .bottom)
                 }
-                .onAppear {
-                    if let last = model.thread.last { proxy.scrollTo(last.id, anchor: .bottom) }
+                .onChange(of: model.thread.first?.id) {
+                    // The first load of a chat arrives after the view does.
+                    guard let last = model.thread.last else { return }
+                    proxy.scrollTo(last.id, anchor: .bottom)
                 }
             }
         }
