@@ -75,6 +75,14 @@ public final class AppDatabase: Sendable {
         try db.query("SELECT * FROM contact WHERE jid = ?", [.text(jid)]).first.map(ContactRecord.init(row:))
     }
 
+    public func setPinned(jid: String, _ pinned: Bool) throws {
+        try db.run("UPDATE contact SET pinned = ? WHERE jid = ?", [.int(pinned ? 1 : 0), .text(jid)])
+    }
+
+    public func setBlacklisted(jid: String, _ blacklisted: Bool) throws {
+        try db.run("UPDATE contact SET blacklisted = ? WHERE jid = ?", [.int(blacklisted ? 1 : 0), .text(jid)])
+    }
+
     // MARK: Enrolment
 
     public func replaceEnrollment(jid: String, notes: [EnrolledNote]) throws {
@@ -163,6 +171,16 @@ public final class AppDatabase: Sendable {
     public func verdict(messagePK: Int64) throws -> VerdictRecord? {
         try db.query("SELECT * FROM verdict WHERE messagePK = ?", [.int(messagePK)])
             .first.map(VerdictRecord.init(row:))
+    }
+
+    /// Replaces a verdict's judgment while keeping the note it describes. Used when the user
+    /// overrules the app, which is always allowed to win.
+    public func overrideVerdict(messagePK: Int64, kind: VerdictKind, colour: VerdictColour,
+                                reason: String, explanation: String) throws {
+        try db.run("""
+            UPDATE verdict SET kind = ?, colour = ?, reason = ?, explanation = ? WHERE messagePK = ?
+            """, [.text(kind.rawValue), .text(colour.rawValue), .text(reason), .text(explanation),
+                  .int(messagePK)])
     }
 
     // MARK: Settings
