@@ -10,9 +10,7 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Image(systemName: "waveform.badge.magnifyingglass")
-                .font(.system(size: 52, weight: .light))
-                .foregroundStyle(Color.primaryBlue)
+            BrandMark(size: 92)
             VStack(spacing: 6) {
                 Text("AntiFish")
                     .font(AppType.heading)

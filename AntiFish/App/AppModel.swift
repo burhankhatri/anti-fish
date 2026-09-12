@@ -357,9 +357,7 @@ final class AppModel {
         for summary in summaries {
             let who = await identity(summary.jid)
             let name = summary.savedName?.isEmpty == false ? summary.savedName! : who.displayName
-            let avatar = who.avatarPath
-                .map { locator.mediaURL(relativePath: $0) }
-                .flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
+            let avatar = who.avatarPath.flatMap { locator.profilePictureURL(relativePath: $0) }
             let attention = verdicts[summary.jid]?.filter(\.isRed).count ?? 0
             rows.append(ChatRow(summary: summary, displayName: name, avatarURL: avatar,
                                 preview: previews[summary.sessionPK] ?? "", attentionCount: attention))
@@ -458,9 +456,7 @@ final class AppModel {
         for record in try db.verdicts(limit: 500) {
             let sender = await identity(record.senderJID)
             let chat = record.chatIsGroup ? await identity(record.chatJID).displayName : nil
-            let avatar = sender.avatarPath
-                .map { locator.mediaURL(relativePath: $0) }
-                .flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
+            let avatar = sender.avatarPath.flatMap { locator.profilePictureURL(relativePath: $0) }
             items.append(FeedItem(record: record, senderName: sender.displayName,
                                   chatName: chat, avatarURL: avatar))
         }
@@ -484,7 +480,7 @@ final class AppModel {
                                    pinned: contact.pinned, noteCount: fp?.noteCount ?? 0,
                                    speechSeconds: fp?.speechSeconds ?? 0, lastNoteDate: fp?.lastNoteDate,
                                    tier: tier,
-                                   avatarURL: contact.avatarPath.map { locator.mediaURL(relativePath: $0) }))
+                                   avatarURL: contact.avatarPath.flatMap { locator.profilePictureURL(relativePath: $0) }))
         }
         contacts = Self.sorted(rows)
         if !isPaused {

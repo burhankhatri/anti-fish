@@ -44,9 +44,13 @@ struct AntiFishApp: App {
                 .preferredColorScheme(.light)
                 .tint(Color.primaryContainer)
         } label: {
-            Image(systemName: model.lastNeedingAttention == nil
-                  ? "waveform.badge.magnifyingglass"
-                  : "waveform.badge.exclamationmark")
+            if let mark = BrandMark.image {
+                Image(nsImage: mark).resizable().scaledToFit()
+            } else {
+                Image(systemName: model.lastNeedingAttention == nil
+                      ? "waveform.badge.magnifyingglass"
+                      : "waveform.badge.exclamationmark")
+            }
         }
         .menuBarExtraStyle(.window)
     }

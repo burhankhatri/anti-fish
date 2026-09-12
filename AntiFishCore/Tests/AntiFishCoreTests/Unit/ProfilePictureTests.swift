@@ -37,13 +37,13 @@ final class ProfilePictureTests: XCTestCase {
     /// meant every lookup missed.
     func testOnlyPathShapedValuesAreKept() throws {
         let pair = try FixtureDB.standardPair()
-        let chat = try ChatStore(url: pair.chat)
-        try chat.db.execute("""
+        let writable = try SQLiteDatabase(url: pair.chat, readOnly: false)
+        try writable.execute("""
             INSERT INTO ZWAPROFILEPICTUREITEM VALUES
               (2,'222@lid','ChsKFTE0NDM5ODY0NjQ3ODkwOjY1QGxpZBABGAEK'),
               (3,'333@lid','Media/Profile/333-1');
             """)
-        let tables = try NameTables.load(chat: chat, contacts: nil)
+        let tables = try NameTables.load(chat: try ChatStore(url: pair.chat), contacts: nil)
         XCTAssertNil(tables.avatarPaths["222@lid"], "an encoded blob is not a path")
         XCTAssertEqual(tables.avatarPaths["333@lid"], "Media/Profile/333-1")
     }

@@ -59,7 +59,11 @@ public struct NameTables: Sendable, Equatable {
                 SELECT ZJID, ZPATH FROM ZWAPROFILEPICTUREITEM
                 WHERE ZJID IS NOT NULL AND ZPATH IS NOT NULL
                 """) {
-                if let jid = row.string("ZJID"), let path = row.string("ZPATH") { t.avatarPaths[jid] = path }
+                // Most rows hold an encoded blob rather than a path; only a path is useful.
+                if let jid = row.string("ZJID"), let path = row.string("ZPATH"),
+                   path.hasPrefix("Media/") {
+                    t.avatarPaths[jid] = path
+                }
             }
         }
 

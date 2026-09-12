@@ -63,9 +63,8 @@ struct MainView: View {
 
     private func emptyDetail(title: String, detail: String, symbol: String) -> some View {
         VStack(spacing: Spacing.sm) {
-            Image(systemName: symbol)
-                .font(.system(size: 44, weight: .light))
-                .foregroundStyle(Color.outlineVariant)
+            BrandMark(size: 96)
+                .opacity(0.5)
             Text(title).font(AppType.headingSm).foregroundStyle(Color.onSurface)
             Text(detail)
                 .font(AppType.bodySm)

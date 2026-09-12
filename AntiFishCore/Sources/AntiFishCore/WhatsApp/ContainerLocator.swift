@@ -35,4 +35,15 @@ public struct ContainerLocator: Sendable {
     public func mediaURL(relativePath: String) -> URL {
         messageRoot.appendingPathComponent(relativePath)
     }
+
+    /// Profile pictures sit under the container root rather than under `Message/`, and the file on
+    /// disk carries an extension the stored path does not. Returns nil when nothing is there.
+    public func profilePictureURL(relativePath: String) -> URL? {
+        let base = root.appendingPathComponent(relativePath)
+        for suffix in [".thumb", ".jpg", ""] {
+            let candidate = suffix.isEmpty ? base : URL(fileURLWithPath: base.path + suffix)
+            if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+        }
+        return nil
+    }
 }
