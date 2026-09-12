@@ -68,7 +68,7 @@ final class ClaimCheckTests: XCTestCase {
     func testCandidatesWithoutANameStillAppear() {
         let fp = Fingerprint(jid: "555111222@lid", centroid: [1, 0], noteCount: 3, speechSeconds: 40,
                              lastNoteDate: Date(), modelVersion: "m")
-        let candidate = try? XCTUnwrap(ClaimCandidate.list(from: [fp], names: [:]).first)
-        XCTAssertEqual(candidate??.name, "WA ····1222")
+        let candidate = ClaimCandidate.list(from: [fp], names: [:]).first
+        XCTAssertEqual(candidate?.name, "WA ····1222")
     }
 }

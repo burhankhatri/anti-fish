@@ -15,3 +15,14 @@ verdict comes from PhishGuard.
 
 The deepfake check calls SightEngine, which means the image leaves this Mac. That is the one part
 of AntiFish that uses the network, it is off unless configured, and the interface says so.
+
+| `videocheck/` | [MominaAli1/antiFish-mp4](https://github.com/MominaAli1/antiFish-mp4) | Video face-manipulation scoring, fully local |
+
+The video scanner runs on this machine with no API and no upload, but it needs PyTorch. Without it
+AntiFish says so rather than guessing. Install with:
+
+    pip install --index-url https://download.pytorch.org/whl/cpu torch
+    pip install transformers pillow opencv-python
+
+`DemoClips/` holds the labelled clips that ship with that project, for showing the difference
+between a real recording and a generated one.

@@ -131,8 +131,41 @@ public actor Coordinator {
 
     // MARK: Verification
 
+    /// Everyone the user could name when asked "who does this person say they are?".
+    public func claimCandidates() throws -> [ClaimCandidate] {
+        if chat == nil { try openStores() }
+        let fingerprints = try db.fingerprints()
+        let names = Dictionary(fingerprints.map { ($0.jid, NameResolver.resolve($0.jid, tables: tables).displayName) },
+                               uniquingKeysWith: { a, _ in a })
+        return ClaimCandidate.list(from: fingerprints, names: names)
+    }
+
+    /// Re-checks a note the app has already judged, this time against a name the user supplied.
+    /// Nothing is stored: the user is asking a question, not correcting the app.
+    public func check(messagePK: Int64, claiming claimedJID: String) async throws -> Verdict? {
+        guard let stored = try db.verdict(messagePK: messagePK) else { return nil }
+        let note = VoiceNoteRecord(messagePK: stored.messagePK, chatJID: stored.chatJID,
+                                   senderJID: stored.senderJID, isFromMe: false, date: stored.date,
+                                   durationSeconds: stored.durationSeconds,
+                                   relativeMediaPath: stored.relativeMediaPath,
+                                   chatIsGroup: stored.chatIsGroup)
+        return try await judge(note, forcedClaim: claimedJID).verdict
+    }
+
     @discardableResult
     public func verify(_ note: VoiceNoteRecord, now: Date = Date()) async throws -> VerdictRecord {
+        let outcome = try await judge(note, forcedClaim: nil)
+        let record = VerdictRecord(note: note, verdict: outcome.verdict, speechSeconds: outcome.speechSeconds,
+                                   computedAt: now, modelVersion: engine.modelVersion)
+        try db.saveVerdict(record)
+        continuation.yield(.verdict(record))
+        return record
+    }
+
+    /// Listens to one note and decides. `forcedClaim` is a name the user supplied, which replaces
+    /// the guess made from the sender's own profile name.
+    private func judge(_ note: VoiceNoteRecord,
+                       forcedClaim: String?) async throws -> (verdict: Verdict, speechSeconds: Double) {
         if chat == nil { try openStores() }
         let fingerprints = try db.fingerprints()
         let thresholds = try db.thresholds()
@@ -144,58 +177,53 @@ public actor Coordinator {
         names[note.senderJID] = identity.displayName
 
         let hasFingerprint = fingerprints.contains { $0.jid == note.senderJID }
-        let senderClass: SenderClass = identity.isSavedContact
-            ? (hasFingerprint ? .knownEnrolled : .knownUnenrolled)
-            : .unknown
+        // A claim the user makes is a question about an unknown caller, so ask it that way even if
+        // the number happens to be saved.
+        let senderClass: SenderClass = forcedClaim != nil
+            ? .unknown
+            : (identity.isSavedContact ? (hasFingerprint ? .knownEnrolled : .knownUnenrolled) : .unknown)
 
         let url = config.locator.mediaURL(relativePath: note.relativeMediaPath)
-        var verdict: Verdict
-        var speech = 0.0
-
         let mediaReady = await waitForMedia(at: url)
-        if !mediaReady {
-            verdict = .unverifiable(.mediaMissing, explanation: "The audio hasn't been downloaded yet.")
-        } else {
-            do {
-                let analysis = try await engine.analyze(url: url)
-                speech = analysis.speechSeconds
-                let projected = center.project(analysis.embedding)
-                // Score against each contact's centroid blended with their closest actual notes.
-                var comparisons: [Comparison] = []
-                if !analysis.embedding.isEmpty {
-                    for fp in fingerprints {
-                        let notes = try db.enrollmentNotes(jid: fp.jid).map { center.project($0.embedding) }
-                        comparisons.append(Comparison(jid: fp.jid,
-                                                      score: VoiceMatcher.score(probe: projected,
-                                                                                centroid: fp.centroid,
-                                                                                noteEmbeddings: notes)))
-                    }
-                }
-                let claimed = senderClass == .unknown
-                    ? ClaimMatcher.claimedJID(pushName: identity.pushName,
-                                              enrolled: fingerprints.map(\.jid), names: names)
-                    : nil
-                verdict = Verifier.verdict(
-                    VerificationInput(senderJID: note.senderJID, senderClass: senderClass,
-                                      claimedJID: claimed, speechSeconds: speech,
-                                      comparisons: comparisons, names: names),
-                    thresholds: thresholds)
-                if verdict.kind == .verified, let score = verdict.score {
-                    try rollingUpdate(note: note, analysis: analysis, score: score,
-                                      thresholds: thresholds, fingerprints: fingerprints, center: center)
-                }
-            } catch let error as AudioDecodeError {
-                verdict = .unverifiable(.decodeFailed, explanation: "Couldn't decode this audio (\(error)).")
-            } catch {
-                verdict = .unverifiable(.modelFailed, explanation: "Voice analysis failed (\(error)).")
-            }
+        guard mediaReady else {
+            return (.unverifiable(.mediaMissing, explanation: "The audio hasn't been downloaded yet."), 0)
         }
 
-        let record = VerdictRecord(note: note, verdict: verdict, speechSeconds: speech,
-                                   computedAt: now, modelVersion: engine.modelVersion)
-        try db.saveVerdict(record)
-        continuation.yield(.verdict(record))
-        return record
+        do {
+            let analysis = try await engine.analyze(url: url)
+            let speech = analysis.speechSeconds
+            let projected = center.project(analysis.embedding)
+            var comparisons: [Comparison] = []
+            if !analysis.embedding.isEmpty {
+                for fp in fingerprints {
+                    let notes = try db.enrollmentNotes(jid: fp.jid).map { center.project($0.embedding) }
+                    comparisons.append(Comparison(jid: fp.jid,
+                                                  score: VoiceMatcher.score(probe: projected,
+                                                                            centroid: fp.centroid,
+                                                                            noteEmbeddings: notes)))
+                }
+            }
+            let claimed = forcedClaim
+                ?? (senderClass == .unknown
+                    ? ClaimMatcher.claimedJID(pushName: identity.pushName,
+                                              enrolled: fingerprints.map(\.jid), names: names)
+                    : nil)
+            let verdict = Verifier.verdict(
+                VerificationInput(senderJID: note.senderJID, senderClass: senderClass,
+                                  claimedJID: claimed, speechSeconds: speech,
+                                  comparisons: comparisons, names: names),
+                thresholds: thresholds)
+
+            if forcedClaim == nil, verdict.kind == .verified, let score = verdict.score {
+                try rollingUpdate(note: note, analysis: analysis, score: score,
+                                  thresholds: thresholds, fingerprints: fingerprints, center: center)
+            }
+            return (verdict, speech)
+        } catch let error as AudioDecodeError {
+            return (.unverifiable(.decodeFailed, explanation: "Couldn't decode this audio (\(error))."), 0)
+        } catch {
+            return (.unverifiable(.modelFailed, explanation: "Voice analysis failed (\(error))."), 0)
+        }
     }
 
     /// Keeps a fingerprint current as a voice drifts, without letting an impostor into it.
