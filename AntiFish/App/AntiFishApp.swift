@@ -9,9 +9,15 @@ struct AntiFishApp: App {
         WindowGroup("AntiFish", id: "main") {
             RootView().environment(model)
         }
-        .defaultSize(width: 900, height: 620)
+        .defaultSize(width: 1000, height: 700)
+        .defaultPosition(.topLeading)
 
-        Window("Contacts", id: "contacts") {
+        Window("Flagged voice notes", id: "flagged") {
+            FlaggedView().environment(model)
+        }
+        .defaultSize(width: 720, height: 520)
+
+        Window("Voices", id: "contacts") {
             ContactsView().environment(model)
         }
         .defaultSize(width: 620, height: 520)

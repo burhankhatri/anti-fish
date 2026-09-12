@@ -18,6 +18,23 @@ final class AppModel {
     var selectedItemID: Int64?
     var needsRebuild = false
 
+    // WhatsApp-shaped state: a list of chats, one of them open.
+    var chats: [ChatRow] = []
+    var selectedChatPK: Int64?
+    var thread: [ThreadItem] = []
+    var isLoadingThread = false
+    var chatSearch = ""
+
+    var visibleChats: [ChatRow] {
+        guard !chatSearch.isEmpty else { return chats }
+        let needle = chatSearch.lowercased()
+        return chats.filter { $0.displayName.lowercased().contains(needle) }
+    }
+
+    var selectedChat: ChatRow? {
+        chats.first { $0.id == selectedChatPK }
+    }
+
     let locator: ContainerLocator
     let notifier = Notifier()
     let player = NotePlayer()
@@ -31,6 +48,7 @@ final class AppModel {
     private var pendingPass = false
     private var identities: [String: ResolvedIdentity] = [:]
     private var waveforms: [Int64: [Float]] = [:]
+    private var previews: [Int64: String] = [:]
 
     init(locator: ContainerLocator = AppModel.defaultLocator,
          databaseURL: URL? = AppModel.defaultDatabaseURL,
@@ -171,8 +189,84 @@ final class AppModel {
 
     func refresh() async throws {
         try await refreshFeed()
+        try await refreshChats()
         try await refreshContacts()
         calibration = try db?.calibration()
+        if selectedChatPK != nil { try await refreshThread() }
+    }
+
+    // MARK: Chats
+
+    func refreshChats() async throws {
+        guard let coordinator else { return }
+        let summaries = try await coordinator.chats()
+        let verdicts = Dictionary(grouping: try db?.verdicts(limit: 500) ?? [], by: \.chatJID)
+
+        var rows: [ChatRow] = []
+        for summary in summaries {
+            let who = await identity(summary.jid)
+            let name = summary.savedName?.isEmpty == false ? summary.savedName! : who.displayName
+            let avatar = who.avatarPath
+                .map { locator.mediaURL(relativePath: $0) }
+                .flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
+            let attention = verdicts[summary.jid]?.filter(\.isRed).count ?? 0
+            rows.append(ChatRow(summary: summary, displayName: name, avatarURL: avatar,
+                                preview: previews[summary.sessionPK] ?? "", attentionCount: attention))
+        }
+        chats = rows
+    }
+
+    /// Opens a chat: shows what is already known straight away, then checks any voice notes in it
+    /// that have never been looked at.
+    func openChat(_ chat: ChatRow) async {
+        selectedChatPK = chat.id
+        thread = []
+        try? await refreshThread()
+        await verifyUnjudgedNotes(in: chat)
+    }
+
+    func refreshThread() async throws {
+        guard let coordinator, let sessionPK = selectedChatPK else { return }
+        let messages = try await coordinator.messages(sessionPK: sessionPK)
+        var items: [ThreadItem] = []
+        for message in messages {
+            let name = message.isFromMe ? "You" : await identity(message.senderJID).displayName
+            items.append(ThreadItem(message: message, senderName: name,
+                                    verdict: try db?.verdict(messagePK: message.messagePK)))
+        }
+        thread = items
+        if let last = messages.last {
+            previews[sessionPK] = Self.preview(for: last)
+        }
+    }
+
+    /// Verifies the voice notes in this chat that have no verdict yet, newest first so the ones
+    /// the user is looking at resolve first.
+    private func verifyUnjudgedNotes(in chat: ChatRow) async {
+        guard let coordinator, let db else { return }
+        isLoadingThread = true
+        defer { isLoadingThread = false }
+        let pending = thread.filter { $0.isVoiceNote && !$0.isFromMe && $0.verdict == nil
+                                       && $0.message.relativeMediaPath != nil }
+        for item in pending.reversed().prefix(30) {
+            guard let path = item.message.relativeMediaPath else { continue }
+            let note = VoiceNoteRecord(messagePK: item.message.messagePK,
+                                       chatJID: chat.summary.jid,
+                                       senderJID: item.message.senderJID,
+                                       isFromMe: false,
+                                       date: item.message.date,
+                                       durationSeconds: item.message.durationSeconds,
+                                       relativeMediaPath: path,
+                                       chatIsGroup: chat.isGroup)
+            _ = try? await coordinator.verify(note)
+            if selectedChatPK == chat.id { try? await refreshThread() }
+        }
+        _ = db
+    }
+
+    static func preview(for message: ChatMessage) -> String {
+        if let text = message.text, !text.isEmpty { return text }
+        return message.kind.placeholder
     }
 
     private func identity(_ jid: String) async -> ResolvedIdentity {
@@ -339,6 +433,29 @@ final class AppModel {
 
     func mediaURL(for item: FeedItem) -> URL {
         locator.mediaURL(relativePath: item.record.relativeMediaPath)
+    }
+
+    func waveform(forThread item: ThreadItem, bars: Int = 28) async -> [Float] {
+        guard let url = mediaURL(for: item) else { return [] }
+        if let cached = waveforms[item.id] { return cached }
+        let levels = await Task.detached(priority: .utility) { () -> [Float] in
+            guard let decoded = try? OpusDecoder.decode(url: url), !decoded.samples.isEmpty else { return [] }
+            let chunk = max(1, decoded.samples.count / bars)
+            var out: [Float] = []
+            for start in stride(from: 0, to: decoded.samples.count, by: chunk) {
+                let end = min(start + chunk, decoded.samples.count)
+                let slice = decoded.samples[start..<end]
+                out.append((slice.reduce(0) { $0 + $1 * $1 } / Float(slice.count)).squareRoot())
+            }
+            let peak = out.max() ?? 1
+            return peak > 0 ? out.map { max(0.12, $0 / peak) } : out
+        }.value
+        waveforms[item.id] = levels
+        return levels
+    }
+
+    func mediaURL(for item: ThreadItem) -> URL? {
+        item.message.relativeMediaPath.map { locator.mediaURL(relativePath: $0) }
     }
 
     var thresholds: Thresholds { calibration?.thresholds ?? Thresholds() }

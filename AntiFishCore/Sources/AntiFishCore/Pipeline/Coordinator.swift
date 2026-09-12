@@ -241,6 +241,14 @@ public actor Coordinator {
 
     // MARK: Lookups used by the interface
 
+    public func chats(limit: Int = 500) throws -> [ChatSummary] {
+        try ChatListQuery.fetch(try openStores(), limit: limit)
+    }
+
+    public func messages(sessionPK: Int64, limit: Int = 300) throws -> [ChatMessage] {
+        try MessageQuery.fetch(try openStores(), sessionPK: sessionPK, limit: limit)
+    }
+
     public func identity(for jid: String) throws -> ResolvedIdentity {
         if chat == nil { try openStores() }
         return NameResolver.resolve(jid, tables: tables)

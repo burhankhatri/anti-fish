@@ -9,6 +9,13 @@ struct FeedItem: Identifiable, Hashable, Sendable {
     let avatarURL: URL?
 
     var id: Int64 { record.messagePK }
+
+    static func == (a: FeedItem, b: FeedItem) -> Bool {
+        a.record == b.record && a.senderName == b.senderName
+            && a.chatName == b.chatName && a.avatarURL == b.avatarURL
+    }
+
+    func hash(into hasher: inout Hasher) { hasher.combine(record.messagePK) }
     var colour: VerdictColour { VerdictColour(rawValue: record.colour) ?? .grey }
     var kind: VerdictKind { VerdictKind(rawValue: record.kind) ?? .unverifiable }
     var day: Date { Calendar.current.startOfDay(for: record.date) }

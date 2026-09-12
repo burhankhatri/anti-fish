@@ -56,6 +56,7 @@ struct CLI {
         case "verify": try await verify()
         case "calibrate": try calibrate()
         case "feed": try feed()
+        case "chats": try chats()
         default: throw CLIError.usage
         }
     }
@@ -166,6 +167,29 @@ struct CLI {
         for note in targets {
             let record = try await coordinator.verify(note)
             printVerdict(record, coordinator: coordinator)
+        }
+    }
+
+    func chats() throws {
+        try requireWhatsApp()
+        let store = try ChatStore.open(url: locator.chatStorageURL)
+        let contacts = try? ChatStore.open(url: locator.contactsURL)
+        let tables = try NameTables.load(chat: store, contacts: contacts)
+        let list = try ChatListQuery.fetch(store)
+        let limit = Int(options.args.first ?? "15") ?? 15
+        print("\(list.count) chats\n")
+        for chat in list.prefix(limit) {
+            let name = chat.savedName?.isEmpty == false
+                ? chat.savedName!
+                : NameResolver.resolve(chat.jid, tables: tables).displayName
+            let messages = try MessageQuery.fetch(store, sessionPK: chat.sessionPK, limit: 40)
+            let notes = messages.filter { $0.kind == .voiceNote && !$0.isFromMe }.count
+            let last = messages.last.map { m -> String in
+                let body = m.text ?? m.kind.placeholder
+                return String(body.prefix(40)).replacingOccurrences(of: "\n", with: " ")
+            } ?? ""
+            print(String(format: "  %-28@ %@ %2d msgs %2d voice  %@",
+                         name as NSString, chat.isGroup ? "group" : "  1:1", messages.count, notes, last))
         }
     }
 
