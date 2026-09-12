@@ -1,20 +1,13 @@
 import AntiFishCore
 import SwiftUI
 
-/// Places a similarity score against the two learned thresholds.
-///
-/// Only the band the score falls in is coloured; the rest stay grey. A full rainbow always looks
-/// alarming, a mostly-grey bar does not. Thresholds are spelled out underneath so the number never
-/// reads as a black box.
+/// Places a similarity score against the one line that decides the answer.
+/// Only the side the score falls on is coloured; the other stays neutral.
 enum ScoreMeter {
-    enum Band: Equatable {
-        case mismatch, inconclusive, match
-    }
+    enum Band: Equatable { case below, above }
 
     static func band(for score: Float, thresholds t: Thresholds) -> Band {
-        if score <= t.reject { return .mismatch }
-        if score >= t.match { return .match }
-        return .inconclusive
+        score >= t.decision ? .above : .below
     }
 
     /// Maps a cosine score in -1...1 onto 0...1 across the bar.
@@ -26,87 +19,65 @@ enum ScoreMeter {
 struct ScoreMeterView: View {
     let score: Float
     let thresholds: Thresholds
+    var errorRate: Float = 0
 
     private var band: ScoreMeter.Band { ScoreMeter.band(for: score, thresholds: thresholds) }
-    private var rejectAt: Double { ScoreMeter.position(of: thresholds.reject, thresholds: thresholds) }
-    private var matchAt: Double { ScoreMeter.position(of: thresholds.match, thresholds: thresholds) }
+    private var lineAt: Double { ScoreMeter.position(of: thresholds.decision, thresholds: thresholds) }
     private var scoreAt: Double { ScoreMeter.position(of: score, thresholds: thresholds) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
                 Text(score, format: .number.precision(.fractionLength(2)))
-                    .font(.title.monospacedDigit())
+                    .font(AppType.headingSm)
+                    .foregroundStyle(Color.onSurface)
                     .contentTransition(.numericText())
-                Text(bandLabel)
-                    .font(.caption.weight(.medium))
-                    .padding(.horizontal, 8)
+                Text(band == .above ? "above the line" : "below the line")
+                    .font(AppType.caption)
+                    .foregroundStyle(band == .above ? Color.onSuccessContainer : Color.onErrorContainer)
+                    .padding(.horizontal, Spacing.xs)
                     .padding(.vertical, 3)
-                    .background(bandTint.opacity(0.14), in: Capsule())
+                    .background(band == .above ? Color.successContainer : Color.errorContainer,
+                                in: Capsule())
                 Spacer()
             }
 
             GeometryReader { geo in
                 let w = geo.size.width
                 ZStack(alignment: .leading) {
-                    segment(width: w * rejectAt, active: band == .mismatch, tint: .orange)
-                        .offset(x: 0)
-                    segment(width: w * (matchAt - rejectAt), active: band == .inconclusive, tint: .gray)
-                        .offset(x: w * rejectAt)
-                    segment(width: w * (1 - matchAt), active: band == .match, tint: .green)
-                        .offset(x: w * matchAt)
-
-                    tick.offset(x: w * rejectAt)
-                    tick.offset(x: w * matchAt)
-
+                    Capsule()
+                        .fill(band == .below ? Color.errorContainer : Color.surfaceContainerHigh)
+                        .frame(width: max(0, w * lineAt), height: 8)
+                    Capsule()
+                        .fill(band == .above ? Color.successContainer : Color.surfaceContainerHigh)
+                        .frame(width: max(0, w * (1 - lineAt)), height: 8)
+                        .offset(x: w * lineAt)
+                    Rectangle()
+                        .fill(Color.onSurfaceVariant)
+                        .frame(width: 1.5, height: 16)
+                        .offset(x: w * lineAt)
                     Circle()
-                        .fill(.primary)
-                        .frame(width: 12, height: 12)
-                        .overlay(Circle().strokeBorder(Color(nsColor: .windowBackgroundColor), lineWidth: 3))
-                        .offset(x: w * scoreAt - 6)
+                        .fill(Color.onSurface)
+                        .frame(width: 13, height: 13)
+                        .overlay(Circle().strokeBorder(Color.surfaceContainerLowest, lineWidth: 3))
+                        .offset(x: w * scoreAt - 6.5)
                         .animation(.spring(response: 0.5, dampingFraction: 0.85), value: scoreAt)
                 }
-                .frame(height: 14)
+                .frame(height: 16)
             }
-            .frame(height: 14)
+            .frame(height: 16)
 
-            HStack {
-                Text("mismatch below \(thresholds.reject, format: .number.precision(.fractionLength(2)))")
-                Spacer()
-                Text(thresholds.calibrated ? "learned from your contacts" : "starting values")
-                Spacer()
-                Text("match above \(thresholds.match, format: .number.precision(.fractionLength(2)))")
-            }
-            .font(.caption2.monospacedDigit())
-            .foregroundStyle(.tertiary)
+            Text(footnote)
+                .font(AppType.captionSm)
+                .foregroundStyle(Color.outlineColor)
         }
     }
 
-    private func segment(width: CGFloat, active: Bool, tint: Color) -> some View {
-        Capsule()
-            .fill(active ? AnyShapeStyle(tint.opacity(0.8)) : AnyShapeStyle(.quaternary))
-            .frame(width: max(0, width), height: 8)
-    }
-
-    private var tick: some View {
-        Rectangle()
-            .fill(.secondary)
-            .frame(width: 1, height: 14)
-    }
-
-    private var bandLabel: String {
-        switch band {
-        case .mismatch: "Does not match"
-        case .inconclusive: "Inconclusive"
-        case .match: "Matches"
-        }
-    }
-
-    private var bandTint: Color {
-        switch band {
-        case .mismatch: .orange
-        case .inconclusive: .gray
-        case .match: .green
-        }
+    private var footnote: String {
+        let line = thresholds.decision.formatted(.number.precision(.fractionLength(2)))
+        guard thresholds.calibrated else { return "The line sits at \(line), a starting value." }
+        guard errorRate > 0 else { return "The line sits at \(line), learned from your own contacts." }
+        let percent = Int((errorRate * 100).rounded())
+        return "The line sits at \(line), learned from your contacts. It is wrong about \(percent)% of the time."
     }
 }

@@ -27,10 +27,12 @@ final class CoordinatorIntegrationTests: XCTestCase {
         XCTAssertFalse(try db.embeddingCenter().isIdentity, "enrolment must produce a centre")
 
         let calibration = try XCTUnwrap(try db.calibration())
-        print("COORDINATOR calibration contacts=\(calibration.contactCount) genuineMedian=\(calibration.genuineMedian) impostorMedian=\(calibration.impostorMedian) reject=\(calibration.thresholds.reject) match=\(calibration.thresholds.match)")
+        print("COORDINATOR calibration contacts=\(calibration.contactCount) genuineMedian=\(calibration.genuineMedian) impostorMedian=\(calibration.impostorMedian) decision=\(calibration.thresholds.decision) error=\(calibration.errorRate)")
         XCTAssertGreaterThanOrEqual(calibration.contactCount, Calibrator.minContacts)
         XCTAssertTrue(calibration.thresholds.calibrated)
-        XCTAssertLessThan(calibration.thresholds.reject, calibration.thresholds.match)
+        XCTAssertGreaterThan(calibration.thresholds.decision, -1)
+        XCTAssertLessThan(calibration.thresholds.decision, 1)
+        XCTAssertLessThan(calibration.errorRate, 0.25, "the learned line must be usable, not a coin flip")
         XCTAssertGreaterThan(calibration.genuineMedian, calibration.impostorMedian + 0.3,
                              "real contacts must separate clearly once the space is centred")
 

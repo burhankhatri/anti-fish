@@ -14,14 +14,16 @@ struct DetailSheet: View {
             identityCard
             verdictLine
             if let score = item.record.score {
-                ScoreMeterView(score: Float(score), thresholds: model.thresholds)
+                ScoreMeterView(score: Float(score), thresholds: model.thresholds,
+                               errorRate: model.calibration?.errorRate ?? 0)
             }
             if !comparisons.isEmpty { evidence }
             Spacer(minLength: 0)
             actions
         }
-        .padding(24)
-        .frame(width: 520, height: 640)
+        .padding(Spacing.lg)
+        .frame(width: 540, height: 660)
+        .background(Color.background)
         .accessibilityIdentifier("detail.pane")
         .task(id: item.id) {
             model.player.stop()
@@ -35,8 +37,12 @@ struct DetailSheet: View {
             HStack(spacing: 12) {
                 Avatar(url: item.avatarURL, name: item.senderName, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.senderName).font(.title3.weight(.semibold))
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                    Text(item.senderName)
+                        .font(AppType.title)
+                        .foregroundStyle(Color.onSurface)
+                    Text(subtitle)
+                        .font(AppType.caption)
+                        .foregroundStyle(Color.onSurfaceVariant)
                 }
                 Spacer()
             }
@@ -45,8 +51,8 @@ struct DetailSheet: View {
                     model.player.toggle(url: model.mediaURL(for: item))
                 } label: {
                     Image(systemName: model.player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.system(size: 26))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 28))
+                        .foregroundStyle(Color.primaryContainer)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("detail.play")
@@ -54,27 +60,34 @@ struct DetailSheet: View {
                 Waveform(levels: levels, progress: model.player.progress) { model.player.seek(to: $0) }
 
                 Text(timeLabel)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .font(AppType.captionSm)
+                    .monospacedDigit()
+                    .foregroundStyle(Color.onSurfaceVariant)
             }
         }
-        .padding(16)
+        .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.surfaceContainerLowest,
+                    in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
     }
 
     private var verdictLine: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(item.record.explanation)
-                .font(.title3.weight(.medium))
+                .font(AppType.subheading)
+                .foregroundStyle(Color.onSurface)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(basis).font(.subheadline).foregroundStyle(.secondary)
+            Text(basis)
+                .font(AppType.bodySm)
+                .foregroundStyle(Color.onSurfaceVariant)
         }
     }
 
     private var evidence: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Closest voices you know").font(.callout.weight(.medium))
+            Text("Closest voices you know")
+                .font(AppType.bodySmMedium)
+                .foregroundStyle(Color.onSurface)
             ForEach(comparisons, id: \.jid) { c in
                 HStack {
                     Image(systemName: "waveform")
@@ -86,8 +99,8 @@ struct DetailSheet: View {
                     Text(c.score, format: .number.precision(.fractionLength(2)))
                         .monospacedDigit()
                 }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(AppType.bodySm)
+                .foregroundStyle(Color.onSurfaceVariant)
             }
         }
     }
@@ -98,7 +111,8 @@ struct DetailSheet: View {
                 Task { await model.reportImpostor(item); dismiss() }
             }
             .buttonStyle(.borderless)
-            .foregroundStyle(.red)
+            .foregroundStyle(Color.errorRed)
+            .font(AppType.bodySmMedium)
             .accessibilityIdentifier("detail.impostor")
 
             Spacer()
@@ -107,6 +121,8 @@ struct DetailSheet: View {
                 Task { await model.markGenuine(item); dismiss() }
             }
             .buttonStyle(.borderedProminent)
+            .tint(Color.primaryContainer)
+            .font(AppType.bodySmMedium)
             .accessibilityIdentifier("detail.genuine")
         }
         .controlSize(.large)

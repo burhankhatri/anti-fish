@@ -12,11 +12,11 @@ struct SettingsView: View {
                 if let c = model.calibration {
                     LabeledContent("Status", value: c.thresholds.calibrated
                                    ? "Learned from \(c.contactCount) of your contacts"
-                                   : "Starting values — needs five or more enrolled contacts")
-                    LabeledContent("Match above", value: number(c.thresholds.match))
-                    LabeledContent("Mismatch below", value: number(c.thresholds.reject))
+                                   : "Starting value — needs five or more enrolled contacts")
+                    LabeledContent("Decision point", value: number(c.thresholds.decision))
                     LabeledContent("Your contacts score", value: number(c.genuineMedian))
                     LabeledContent("Everyone else scores", value: number(c.impostorMedian))
+                    LabeledContent("Wrong about", value: "\(Int((c.errorRate * 100).rounded()))% of the time")
                     LabeledContent("Last calibrated",
                                    value: c.calibratedAt.formatted(date: .abbreviated, time: .shortened))
                 } else {

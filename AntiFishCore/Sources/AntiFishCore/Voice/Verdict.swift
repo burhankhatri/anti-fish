@@ -26,6 +26,7 @@ public enum VerdictKind: String, Sendable, Codable {
     case matchesUnsavedNumber
     case unknownVoice
     case unverifiable
+    /// No longer produced. Kept so verdicts stored by older versions still decode.
     case unclear
 }
 
@@ -33,12 +34,10 @@ public enum VerdictColour: String, Sendable, Codable {
     case green, red, amber, grey
 }
 
-public enum UnclearReason: String, Sendable {
-    case tooShort, shortClip, borderline
-}
-
+/// The honest non-answers. There is no "inconclusive": either the note could be checked or it
+/// could not, and each of these says exactly why not.
 public enum UnverifiableReason: String, Sendable {
-    case notEnrolled, modelFailed, mediaMissing, decodeFailed
+    case notEnrolled, modelFailed, mediaMissing, decodeFailed, tooShort
 }
 
 public struct Verdict: Sendable, Equatable {

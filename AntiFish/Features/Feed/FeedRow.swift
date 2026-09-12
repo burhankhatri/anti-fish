@@ -22,22 +22,24 @@ struct FeedRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(item.senderName)
-                        .font(.body.weight(.medium))
+                        .font(AppType.bodySmMedium)
+                        .foregroundStyle(Color.onSurface)
                         .lineLimit(1)
                     if let chat = item.chatName {
                         Text("in \(chat)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(AppType.caption)
+                            .foregroundStyle(Color.onSurfaceVariant)
                             .lineLimit(1)
                     }
                 }
                 HStack(spacing: 6) {
                     Text(duration)
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .font(AppType.captionSm)
+                        .monospacedDigit()
+                        .foregroundStyle(Color.outlineColor)
                     Text(item.record.explanation)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(AppType.caption)
+                        .foregroundStyle(Color.onSurfaceVariant)
                         .lineLimit(1)
                 }
             }
@@ -50,12 +52,13 @@ struct FeedRow: View {
             }
 
             Text(item.record.date.formatted(date: .omitted, time: .shortened))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.tertiary)
+                .font(AppType.captionSm)
+                .monospacedDigit()
+                .foregroundStyle(Color.outlineColor)
                 .frame(width: 52, alignment: .trailing)
         }
         .padding(.vertical, 5)
-        .background(item.needsAttention ? Color.orange.opacity(0.07) : .clear)
+        .background(item.needsAttention ? Color.errorContainer.opacity(0.5) : .clear)
         .animation(.snappy(duration: 0.22), value: item.kind)
         .onHover { hovering = $0 }
         .accessibilityIdentifier("feed.row.\(item.id)")

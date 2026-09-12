@@ -7,16 +7,20 @@ public struct CalibrationResult: Sendable, Equatable, Codable {
     public let impostorCount: Int
     public let genuineMedian: Float
     public let impostorMedian: Float
+    /// How often the learned threshold gets it wrong, in either direction.
+    public let errorRate: Float
     public let calibratedAt: Date
 
     public init(thresholds: Thresholds, contactCount: Int, genuineCount: Int, impostorCount: Int,
-                genuineMedian: Float, impostorMedian: Float, calibratedAt: Date) {
+                genuineMedian: Float, impostorMedian: Float, errorRate: Float = 0,
+                calibratedAt: Date) {
         self.thresholds = thresholds
         self.contactCount = contactCount
         self.genuineCount = genuineCount
         self.impostorCount = impostorCount
         self.genuineMedian = genuineMedian
         self.impostorMedian = impostorMedian
+        self.errorRate = errorRate
         self.calibratedAt = calibratedAt
     }
 }
@@ -44,20 +48,21 @@ public enum Calibrator {
             for (index, embedding) in own.enumerated() {
                 var rest = own
                 rest.remove(at: index)
-                genuine.append(Vector.cosine(embedding, Vector.centroid(rest)))
+                genuine.append(VoiceMatcher.score(probe: embedding, centroid: Vector.centroid(rest),
+                                                  noteEmbeddings: rest))
                 for (otherJID, centroid) in centroids where otherJID != jid {
-                    impostor.append(Vector.cosine(embedding, centroid))
+                    impostor.append(VoiceMatcher.score(probe: embedding, centroid: centroid,
+                                                       noteEmbeddings: bySender[otherJID] ?? []))
                 }
             }
         }
 
         var thresholds = defaults
+        var error: Float = 0
         if bySender.count >= minContacts, !genuine.isEmpty, !impostor.isEmpty {
-            let imp99 = percentile(impostor, 99)
-            let gen2 = percentile(genuine, 2)
-            // The two can cross when a contact appears under two JIDs; keeping them ordered means
-            // the overlap becomes a wide "unclear" band rather than a confident wrong answer.
-            thresholds = Thresholds(reject: min(imp99, gen2), match: max(imp99, gen2), calibrated: true)
+            let point = equalErrorThreshold(genuine: genuine, impostor: impostor)
+            thresholds = Thresholds(decision: point, calibrated: true)
+            error = errorRate(at: point, genuine: genuine, impostor: impostor)
         }
         return CalibrationResult(thresholds: thresholds,
                                  contactCount: bySender.count,
@@ -65,7 +70,31 @@ public enum Calibrator {
                                  impostorCount: impostor.count,
                                  genuineMedian: median(genuine),
                                  impostorMedian: median(impostor),
+                                 errorRate: error,
                                  calibratedAt: now)
+    }
+
+    /// The score where wrongly clearing a stranger and wrongly flagging a friend happen equally
+    /// often. Searching the whole range is cheap and avoids assuming either distribution's shape.
+    public static func equalErrorThreshold(genuine: [Float], impostor: [Float]) -> Float {
+        guard !genuine.isEmpty, !impostor.isEmpty else { return Thresholds().decision }
+        var best = (gap: Float.greatestFiniteMagnitude, point: Thresholds().decision)
+        for step in 0...1000 {
+            let point = -1 + 2 * Float(step) / 1000
+            let falseAccept = Float(impostor.count { $0 >= point }) / Float(impostor.count)
+            let falseReject = Float(genuine.count { $0 < point }) / Float(genuine.count)
+            let gap = abs(falseAccept - falseReject)
+            if gap < best.gap { best = (gap, point) }
+        }
+        return best.point
+    }
+
+    /// The average of the two ways the threshold can be wrong.
+    public static func errorRate(at point: Float, genuine: [Float], impostor: [Float]) -> Float {
+        guard !genuine.isEmpty, !impostor.isEmpty else { return 0 }
+        let falseAccept = Float(impostor.count { $0 >= point }) / Float(impostor.count)
+        let falseReject = Float(genuine.count { $0 < point }) / Float(genuine.count)
+        return (falseAccept + falseReject) / 2
     }
 
     /// Nearest-rank percentile, `p` in 0...100. Empty input yields 0.

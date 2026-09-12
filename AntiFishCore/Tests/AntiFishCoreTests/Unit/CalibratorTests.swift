@@ -32,7 +32,8 @@ final class CalibratorTests: XCTestCase {
         XCTAssertEqual(result.contactCount, 6)
         XCTAssertEqual(result.genuineCount, 24)
         XCTAssertEqual(result.impostorCount, 24 * 5)
-        XCTAssertLessThan(result.thresholds.reject, result.thresholds.match)
+        XCTAssertGreaterThan(result.thresholds.decision, -1)
+        XCTAssertLessThan(result.thresholds.decision, 1)
         XCTAssertGreaterThan(result.genuineMedian, result.impostorMedian)
         XCTAssertEqual(result.calibratedAt, Date(timeIntervalSinceReferenceDate: 5))
     }
@@ -51,22 +52,21 @@ final class CalibratorTests: XCTestCase {
         XCTAssertEqual(Calibrator.calibrate(notes: all, center: .identity).contactCount, 5)
     }
 
-    /// Thresholds must stay ordered and inside the valid cosine range even when the two
-    /// distributions overlap, which happens when two JIDs belong to the same person.
-    func testOverlappingDistributionsStillProduceUsableThresholds() {
-        let overlapping = (0..<6).flatMap { i in
+    /// Two contacts who are really the same person cannot be separated, and the error rate has to
+    /// say so rather than pretending the line is perfect.
+    func testIndistinguishableSpeakersProduceAHonestErrorRate() {
+        // Six "contacts" that all sound identical: every impostor score equals every genuine one.
+        let identical = (0..<6).flatMap { i in
             (0..<4).map { k in
-                var v = [Float](repeating: 0.4, count: 6)
-                v[i % 6] = 1
-                v[(i + 1) % 6] = 0.05 * Float(k)
-                return EnrolledNote(jid: "s\(i)@lid", messagePK: Int64(i * 10 + k),
-                                    embedding: Vector.normalized(v), speechSeconds: 10, date: Date())
+                EnrolledNote(jid: "s\(i)@lid", messagePK: Int64(i * 10 + k),
+                             embedding: [1, 0, 0, 0, 0, 0], speechSeconds: 10, date: Date())
             }
         }
-        let result = Calibrator.calibrate(notes: overlapping, center: .identity)
-        XCTAssertLessThan(result.thresholds.reject, result.thresholds.match)
-        XCTAssertGreaterThanOrEqual(result.thresholds.reject, -1)
-        XCTAssertLessThanOrEqual(result.thresholds.match, 1)
+        let result = Calibrator.calibrate(notes: identical, center: .identity)
+        XCTAssertGreaterThanOrEqual(result.thresholds.decision, -1)
+        XCTAssertLessThanOrEqual(result.thresholds.decision, 1)
+        XCTAssertGreaterThan(result.errorRate, 0.3,
+                             "identical voices should report a near-useless line, not a confident one")
     }
 
     func testCalibrationHappensInTheCentredSpace() {

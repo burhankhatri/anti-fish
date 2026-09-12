@@ -7,27 +7,42 @@ struct AntiFishApp: App {
 
     var body: some Scene {
         WindowGroup("AntiFish", id: "main") {
-            RootView().environment(model)
+            RootView()
+                .environment(model)
+                .preferredColorScheme(.light)
+                .tint(Color.primaryContainer)
         }
         .defaultSize(width: 1000, height: 700)
         .defaultPosition(.topLeading)
 
         Window("Flagged voice notes", id: "flagged") {
-            FlaggedView().environment(model)
+            FlaggedView()
+                .environment(model)
+                .preferredColorScheme(.light)
+                .tint(Color.primaryContainer)
         }
         .defaultSize(width: 720, height: 520)
 
         Window("Voices", id: "contacts") {
-            ContactsView().environment(model)
+            ContactsView()
+                .environment(model)
+                .preferredColorScheme(.light)
+                .tint(Color.primaryContainer)
         }
         .defaultSize(width: 620, height: 520)
 
         Settings {
-            SettingsView().environment(model)
+            SettingsView()
+                .environment(model)
+                .preferredColorScheme(.light)
+                .tint(Color.primaryContainer)
         }
 
         MenuBarExtra {
-            MenuBarView().environment(model)
+            MenuBarView()
+                .environment(model)
+                .preferredColorScheme(.light)
+                .tint(Color.primaryContainer)
         } label: {
             Image(systemName: model.lastNeedingAttention == nil
                   ? "waveform.badge.magnifyingglass"

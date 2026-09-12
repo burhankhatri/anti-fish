@@ -12,10 +12,10 @@ struct Avatar: View {
                 Image(nsImage: image).resizable().scaledToFill()
             } else {
                 ZStack {
-                    Circle().fill(.tint.opacity(0.16))
+                    Circle().fill(Color.primaryFixed)
                     Text(initials)
-                        .font(.system(size: size * 0.38, weight: .semibold))
-                        .foregroundStyle(.tint)
+                        .font(AppFont.font(.bold, size: size * 0.36))
+                        .foregroundStyle(Color.primaryBlue)
                 }
             }
         }

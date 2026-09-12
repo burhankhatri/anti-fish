@@ -16,14 +16,15 @@ final class VoiceMatcherTests: XCTestCase {
         XCTAssertEqual(score, 1, accuracy: 1e-5)
     }
 
+    /// Someone who sounds different across most of their notes drags their own centroid away from
+    /// the few that do match. This is the case the centroid alone gets wrong.
     func testScoreBlendsTheCentroidWithTheClosestNotes() {
-        // The centroid sits between two very different notes, so it matches neither well.
-        // One of the notes is an exact match, and the blend should reflect that.
         let far: [Float] = [0, 0, 1]
-        let centroid = Vector.centroid([a, far])
+        let notes = [a, a, a] + Array(repeating: far, count: 5)
+        let centroid = Vector.centroid(notes)
         let centroidOnly = Vector.cosine(a, centroid)
-        let blended = VoiceMatcher.score(probe: a, centroid: centroid, noteEmbeddings: [a, far])
-        XCTAssertGreaterThan(blended, centroidOnly, "matching one real note should count for something")
+        let blended = VoiceMatcher.score(probe: a, centroid: centroid, noteEmbeddings: notes)
+        XCTAssertGreaterThan(blended, centroidOnly, "matching real notes should count for something")
         XCTAssertLessThan(blended, 1, "but it should not ignore the centroid either")
     }
 

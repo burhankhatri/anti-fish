@@ -14,24 +14,24 @@ struct MessageBubble: View {
             VStack(alignment: .leading, spacing: 4) {
                 if showsSender, !item.isFromMe {
                     Text(item.senderName)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tint)
+                        .font(AppType.captionSm)
+                        .foregroundStyle(Color.primaryBlue)
                 }
                 content
                 HStack(spacing: 4) {
                     Spacer(minLength: 0)
                     Text(item.message.date.formatted(date: .omitted, time: .shortened))
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .font(AppType.captionSm)
+                        .foregroundStyle(Color.outlineColor)
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .frame(maxWidth: 420, alignment: .leading)
-            .background(background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs)
+            .frame(maxWidth: 440, alignment: .leading)
+            .background(background, in: RoundedRectangle(cornerRadius: Radius.bubble, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(.orange.opacity(item.needsAttention ? 0.55 : 0), lineWidth: 1.5))
+                RoundedRectangle(cornerRadius: Radius.bubble, style: .continuous)
+                    .strokeBorder(Color.errorRed.opacity(item.needsAttention ? 0.45 : 0), lineWidth: 1.5))
             if !item.isFromMe { Spacer(minLength: 60) }
         }
         .accessibilityIdentifier("bubble.\(item.id)")
@@ -44,21 +44,22 @@ struct MessageBubble: View {
             VoiceNoteBubble(item: item)
         case .text, .link:
             Text(item.message.text ?? "")
-                .font(.body)
+                .font(AppType.bodySm)
+                .foregroundStyle(Color.onSurface)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         case .systemEvent:
             Text(item.message.text ?? "Group updated")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(AppType.caption)
+                .foregroundStyle(Color.onSurfaceVariant)
         case .deleted:
             Label("This message was deleted", systemImage: "slash.circle")
-                .font(.callout.italic())
-                .foregroundStyle(.tertiary)
+                .font(AppType.caption)
+                .foregroundStyle(Color.outlineColor)
         default:
             Label(item.message.kind.placeholder, systemImage: symbol)
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                .font(AppType.bodySm)
+                .foregroundStyle(Color.onSurfaceVariant)
         }
     }
 
@@ -73,10 +74,10 @@ struct MessageBubble: View {
         }
     }
 
-    private var background: AnyShapeStyle {
-        if item.needsAttention { return AnyShapeStyle(.orange.opacity(0.10)) }
-        if item.isFromMe { return AnyShapeStyle(.tint.opacity(0.16)) }
-        return AnyShapeStyle(.quaternary.opacity(0.55))
+    private var background: Color {
+        if item.needsAttention { return .errorContainer }
+        if item.isFromMe { return .primaryFixed }
+        return .surfaceContainerLowest
     }
 }
 
@@ -91,8 +92,8 @@ struct VoiceNoteBubble: View {
             HStack(spacing: 10) {
                 Button { if let url = model.mediaURL(for: item) { model.player.toggle(url: url) } } label: {
                     Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.system(size: 26))
-                        .foregroundStyle(.tint)
+                        .font(.system(size: 28))
+                        .foregroundStyle(Color.primaryContainer)
                 }
                 .buttonStyle(.plain)
                 .disabled(item.message.relativeMediaPath == nil)
@@ -104,8 +105,9 @@ struct VoiceNoteBubble: View {
                 .frame(width: 150)
 
                 Text(duration)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .font(AppType.captionSm)
+                    .monospacedDigit()
+                    .foregroundStyle(Color.onSurfaceVariant)
             }
 
             if let kind = item.verdictKind, let verdict = item.verdict {
@@ -115,8 +117,8 @@ struct VoiceNoteBubble: View {
                     VStack(alignment: .leading, spacing: 3) {
                         VerdictPill(kind: kind, name: pillName(verdict))
                         Text(verdict.explanation)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(AppType.caption)
+                            .foregroundStyle(Color.onSurfaceVariant)
                             .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)
                     }
@@ -126,12 +128,14 @@ struct VoiceNoteBubble: View {
             } else if !item.isFromMe, item.message.relativeMediaPath != nil {
                 HStack(spacing: 5) {
                     ProgressView().controlSize(.small)
-                    Text("checking this voice…").font(.caption).foregroundStyle(.tertiary)
+                    Text("checking this voice…")
+                        .font(AppType.caption)
+                        .foregroundStyle(Color.outlineColor)
                 }
             } else if item.message.relativeMediaPath == nil {
-                Label("No audio on this Mac — nothing to check", systemImage: "waveform.slash")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                Label("No audio on this Mac", systemImage: "waveform.slash")
+                    .font(AppType.caption)
+                    .foregroundStyle(Color.outlineColor)
             }
         }
         .task(id: item.id) {

@@ -51,7 +51,7 @@ public enum Enroller {
                                      thresholds: Thresholds, policy: EnrollmentPolicy) -> [EnrolledNote]? {
         guard !candidate.embedding.isEmpty,
               candidate.speechSeconds >= 2,
-              score >= thresholds.match,
+              score >= thresholds.decision,
               existing.allSatisfy({ $0.jid == candidate.jid }),
               !existing.contains(where: { $0.messagePK == candidate.messagePK }) else { return nil }
         return Array((existing + [candidate]).sorted { $0.date > $1.date }.prefix(policy.maxNotes))

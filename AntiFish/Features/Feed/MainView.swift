@@ -15,9 +15,21 @@ struct MainView: View {
             if let chat = model.selectedChat {
                 ThreadView(chat: chat)
             } else {
-                ContentUnavailableView("Pick a chat",
-                                       systemImage: "waveform.badge.magnifyingglass",
-                                       description: Text("Open a conversation and AntiFish checks the voice notes in it."))
+                VStack(spacing: Spacing.sm) {
+                    Image(systemName: "waveform.badge.magnifyingglass")
+                        .font(.system(size: 44, weight: .light))
+                        .foregroundStyle(Color.outlineVariant)
+                    Text("Pick a chat")
+                        .font(AppType.headingSm)
+                        .foregroundStyle(Color.onSurface)
+                    Text("Open a conversation and AntiFish checks the voice notes in it.")
+                        .font(AppType.bodySm)
+                        .foregroundStyle(Color.onSurfaceVariant)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 320)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.background)
             }
         }
         .toolbar {
@@ -62,34 +74,40 @@ struct StatusStrip: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Circle().fill(dot).frame(width: 7, height: 7)
-                Text(model.statusLine).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(model.statusLine)
+                    .font(AppType.caption)
+                    .foregroundStyle(Color.onSurfaceVariant)
+                    .lineLimit(1)
                 Spacer()
                 if model.isProcessing { ProgressView().controlSize(.small) }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs)
             .accessibilityIdentifier("header.status")
 
             if let banner = model.banner {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.circle")
-                    Text(banner).lineLimit(3).font(.caption)
+                    Text(banner).lineLimit(3).font(AppType.caption)
                     Spacer()
-                    Button("Dismiss") { model.banner = nil }.buttonStyle(.borderless).font(.caption)
+                    Button("Dismiss") { model.banner = nil }
+                        .buttonStyle(.borderless)
+                        .font(AppType.caption)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(.orange.opacity(0.12))
+                .foregroundStyle(Color.onErrorContainer)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xs)
+                .background(Color.errorContainer)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .background(.bar)
+        .background(Color.surfaceContainerLow)
         .animation(.snappy(duration: 0.25), value: model.banner)
     }
 
     private var dot: Color {
-        if model.isPaused { return .orange }
-        return model.feed.contains(where: \.needsAttention) ? .orange : .green
+        if model.isPaused { return .secondaryContainer }
+        return model.feed.contains(where: \.needsAttention) ? .errorRed : .successGreen
     }
 }
 
@@ -112,8 +130,16 @@ struct FlaggedView: View {
         .accessibilityIdentifier("feed.list")
         .overlay {
             if items.isEmpty {
-                ContentUnavailableView("Nothing to look at", systemImage: "checkmark.shield",
-                                       description: Text("Voice notes worth a second look appear here."))
+                VStack(spacing: Spacing.sm) {
+                    Image(systemName: "checkmark.shield")
+                        .font(.system(size: 40, weight: .light))
+                        .foregroundStyle(Color.successGreen)
+                    Text("Nothing to look at")
+                        .font(AppType.title)
+                        .foregroundStyle(Color.onSurface)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.background)
             }
         }
         .sheet(item: Binding(

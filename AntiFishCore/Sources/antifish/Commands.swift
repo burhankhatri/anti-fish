@@ -106,11 +106,11 @@ struct CLI {
         let fingerprints = try db.fingerprints()
         let t = try db.thresholds()
         print("Fingerprints:       \(fingerprints.count)")
-        print(String(format: "Thresholds:         mismatch <= %.2f, match >= %.2f  (%@)",
-                     t.reject, t.match, t.calibrated ? "calibrated on your contacts" : "defaults"))
+        print(String(format: "Decision point:     %.2f  (%@)",
+                     t.decision, t.calibrated ? "learned from your contacts" : "starting value"))
         if let c = try db.calibration() {
-            print(String(format: "Calibration:        %d contacts, genuine median %.2f, impostor median %.2f",
-                         c.contactCount, c.genuineMedian, c.impostorMedian))
+            print(String(format: "Calibration:        %d contacts, your people score %.2f, strangers %.2f, error %.0f%%",
+                         c.contactCount, c.genuineMedian, c.impostorMedian, c.errorRate * 100))
         }
     }
 
@@ -132,9 +132,10 @@ struct CLI {
         if let c = try db.calibration() {
             print(String(format: "\nCalibration: %d contacts, genuine median %.2f vs impostor median %.2f",
                          c.contactCount, c.genuineMedian, c.impostorMedian))
-            print(String(format: "Thresholds:  mismatch <= %.2f, match >= %.2f  (%@)",
-                         c.thresholds.reject, c.thresholds.match,
-                         c.thresholds.calibrated ? "learned from your contacts" : "defaults"))
+            print(String(format: "Decision point: %.2f  (%@), wrong about %.0f%% of the time",
+                         c.thresholds.decision,
+                         c.thresholds.calibrated ? "learned from your contacts" : "starting value",
+                         c.errorRate * 100))
         }
     }
 
@@ -199,9 +200,10 @@ struct CLI {
         try db.saveCalibration(result)
         print("contacts=\(result.contactCount) genuine=\(result.genuineCount) impostor=\(result.impostorCount)")
         print(String(format: "genuine median %.3f vs impostor median %.3f", result.genuineMedian, result.impostorMedian))
-        print(String(format: "mismatch <= %.3f, match >= %.3f  (%@)",
-                     result.thresholds.reject, result.thresholds.match,
-                     result.thresholds.calibrated ? "calibrated" : "defaults"))
+        print(String(format: "decision point %.3f  (%@), error %.1f%%",
+                     result.thresholds.decision,
+                     result.thresholds.calibrated ? "calibrated" : "starting value",
+                     result.errorRate * 100))
     }
 
     func feed() throws {

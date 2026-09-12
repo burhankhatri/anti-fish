@@ -21,11 +21,14 @@ struct ChatListView: View {
                     }
             }
         }
+        .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(Color.surfaceContainerLow)
         .searchable(text: $model.chatSearch, placement: .sidebar, prompt: "Search chats")
         .safeAreaInset(edge: .top, spacing: 0) {
             HStack(spacing: 8) {
                 Picker("", selection: $model.chatOrder) {
-                    ForEach(ChatOrder.allCases) { Text($0.title).tag($0) }
+                    ForEach(ChatOrder.allCases) { Text($0.title).font(AppType.captionSm).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -41,9 +44,9 @@ struct ChatListView: View {
                     .help("Show hidden chats again")
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.bar)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs)
+            .background(Color.surfaceContainerLow)
         }
         .accessibilityIdentifier("chat.list")
         .overlay {
@@ -66,49 +69,51 @@ struct ChatRowView: View {
                     if chat.isGroup {
                         Image(systemName: "person.2.fill")
                             .font(.system(size: 9))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Color.outlineColor)
                     }
                     Text(chat.displayName)
-                        .font(.body.weight(.medium))
+                        .font(AppType.bodySmMedium)
+                        .foregroundStyle(Color.onSurface)
                         .lineLimit(1)
                     Spacer(minLength: 4)
                     if let date = chat.lastMessageDate {
                         Text(Self.stamp(date))
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .font(AppType.captionSm)
+                            .foregroundStyle(Color.outlineColor)
                     }
                 }
                 HStack(spacing: 6) {
                     Text(chat.preview.isEmpty ? " " : chat.preview)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(AppType.caption)
+                        .foregroundStyle(Color.onSurfaceVariant)
                         .lineLimit(1)
                     Spacer(minLength: 4)
                     if chat.summary.voiceNoteCount > 0 {
                         Label("\(chat.summary.voiceNoteCount)", systemImage: "waveform")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .font(AppType.captionSm)
+                            .foregroundStyle(Color.outlineColor)
                             .labelStyle(.titleAndIcon)
                             .help("\(chat.summary.voiceNoteCount) of \(chat.summary.voiceNoteTotal) voice notes have audio on this Mac")
                     } else if chat.summary.hasNoPlayableAudio {
                         Label("\(chat.summary.voiceNoteTotal)", systemImage: "waveform.slash")
-                            .font(.caption2)
-                            .foregroundStyle(.quaternary)
+                            .font(AppType.captionSm)
+                            .foregroundStyle(Color.surfaceDim)
                             .labelStyle(.titleAndIcon)
                             .help("\(chat.summary.voiceNoteTotal) voice notes, none downloaded to this Mac")
                     }
                     if chat.attentionCount > 0 {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 10))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.errorRed)
                     }
                     if chat.unreadCount > 0 {
                         Text("\(chat.unreadCount)")
-                            .font(.caption2.weight(.semibold).monospacedDigit())
+                            .font(AppType.captionSm)
+                            .monospacedDigit()
                             .padding(.horizontal, 6)
                             .padding(.vertical, 1)
-                            .background(.tint, in: Capsule())
-                            .foregroundStyle(.white)
+                            .background(Color.primaryContainer, in: Capsule())
+                            .foregroundStyle(Color.onPrimary)
                     }
                 }
             }

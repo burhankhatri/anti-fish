@@ -71,8 +71,8 @@ final class EnrollerTests: XCTestCase {
         let good = note("a@lid", pk: 3, secs: 4)
         XCTAssertEqual(Enroller.rollingAppend(existing: existing, candidate: good, score: 0.6,
                                               thresholds: t, policy: policy)?.count, 3)
-        XCTAssertNil(Enroller.rollingAppend(existing: existing, candidate: good, score: 0.4,
-                                            thresholds: t, policy: policy), "below the match threshold")
+        XCTAssertNil(Enroller.rollingAppend(existing: existing, candidate: good, score: 0.2,
+                                            thresholds: t, policy: policy), "below the decision point")
         XCTAssertNil(Enroller.rollingAppend(existing: existing, candidate: note("a@lid", pk: 3, secs: 1.5),
                                             score: 0.9, thresholds: t, policy: policy), "too little speech")
         XCTAssertNil(Enroller.rollingAppend(existing: existing, candidate: note("b@lid", pk: 3, secs: 4),
@@ -95,8 +95,8 @@ final class EnrollerTests: XCTestCase {
 
     func testDefaultThresholdsAreTheMeasuredOnes() {
         let t = Thresholds()
-        XCTAssertEqual(t.reject, 0.25)
-        XCTAssertEqual(t.match, 0.45)
+        XCTAssertEqual(t.decision, 0.36)
+        
         XCTAssertFalse(t.calibrated)
     }
 }

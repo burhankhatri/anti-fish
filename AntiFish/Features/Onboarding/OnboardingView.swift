@@ -12,12 +12,14 @@ struct OnboardingView: View {
         VStack(spacing: 24) {
             Image(systemName: "waveform.badge.magnifyingglass")
                 .font(.system(size: 52, weight: .light))
-                .foregroundStyle(.tint)
+                .foregroundStyle(Color.primaryBlue)
             VStack(spacing: 6) {
-                Text("AntiFish").font(.largeTitle.weight(.semibold))
+                Text("AntiFish")
+                    .font(AppType.heading)
+                    .foregroundStyle(Color.onSurface)
                 Text(tagline)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
+                    .font(AppType.bodySm)
+                    .foregroundStyle(Color.onSurfaceVariant)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 380)
             }
@@ -33,8 +35,9 @@ struct OnboardingView: View {
             }
             .frame(maxWidth: 440)
         }
-        .padding(40)
-        .frame(minWidth: 560, minHeight: 520)
+        .padding(Spacing.xxl)
+        .frame(minWidth: 600, minHeight: 540)
+        .background(Color.background)
     }
 
     private var tagline: String {
@@ -129,29 +132,31 @@ struct StepCard<Actions: View>: View {
             HStack(spacing: 10) {
                 glyph
                 Text(title)
-                    .font(.title3.weight(.semibold))
+                    .font(AppType.title)
+                    .foregroundStyle(Color.onSurface)
                     .accessibilityIdentifier(identifier)
             }
             Text(detail)
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                .font(AppType.bodySm)
+                .foregroundStyle(Color.onSurfaceVariant)
                 .fixedSize(horizontal: false, vertical: true)
             actions
         }
-        .padding(20)
+        .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.surfaceContainerLowest,
+                    in: RoundedRectangle(cornerRadius: Radius.tile, style: .continuous))
     }
 
     @ViewBuilder
     private var glyph: some View {
         switch state {
         case .waiting:
-            Image(systemName: "circle.dashed").foregroundStyle(.tertiary)
+            Image(systemName: "circle.dashed").foregroundStyle(Color.outlineVariant)
         case .working:
             ProgressView().controlSize(.small)
         case .ready:
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.successGreen)
         }
     }
 }

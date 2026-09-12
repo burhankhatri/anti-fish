@@ -160,8 +160,16 @@ public actor Coordinator {
                 let analysis = try await engine.analyze(url: url)
                 speech = analysis.speechSeconds
                 let projected = center.project(analysis.embedding)
-                let comparisons = analysis.embedding.isEmpty ? [] : fingerprints.map {
-                    Comparison(jid: $0.jid, score: Vector.cosine(projected, $0.centroid))
+                // Score against each contact's centroid blended with their closest actual notes.
+                var comparisons: [Comparison] = []
+                if !analysis.embedding.isEmpty {
+                    for fp in fingerprints {
+                        let notes = try db.enrollmentNotes(jid: fp.jid).map { center.project($0.embedding) }
+                        comparisons.append(Comparison(jid: fp.jid,
+                                                      score: VoiceMatcher.score(probe: projected,
+                                                                                centroid: fp.centroid,
+                                                                                noteEmbeddings: notes)))
+                    }
                 }
                 let claimed = senderClass == .unknown
                     ? ClaimMatcher.claimedJID(pushName: identity.pushName,

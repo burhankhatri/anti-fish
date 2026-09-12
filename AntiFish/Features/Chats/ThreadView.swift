@@ -27,8 +27,8 @@ struct ThreadView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.sm)
                 }
                 .onChange(of: model.thread.count) {
                     if let last = model.thread.last { proxy.scrollTo(last.id, anchor: .bottom) }
@@ -38,7 +38,7 @@ struct ThreadView: View {
                 }
             }
         }
-        .background(.background)
+        .background(Color.background)
         .accessibilityIdentifier("thread.view")
     }
 
@@ -50,34 +50,40 @@ struct ThreadView: View {
     /// audio here at all. Saying so is better than showing a row of silent bubbles.
     private var downloadNotice: some View {
         HStack(spacing: 8) {
-            Image(systemName: "arrow.down.circle.dotted").foregroundStyle(.secondary)
-            Text("\(missingCount) older voice notes in this chat have no audio on this Mac. WhatsApp Desktop only downloads media from the day it was linked, so AntiFish can't listen to them.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Image(systemName: "arrow.down.circle.dotted").foregroundStyle(Color.outlineColor)
+            Text("\(missingCount) older voice notes here have no audio on this Mac. WhatsApp only downloads media from the day it was linked, so there is nothing to listen to.")
+                .font(AppType.caption)
+                .foregroundStyle(Color.onSurfaceVariant)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.quaternary.opacity(0.35))
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.xs)
+        .background(Color.surfaceContainer)
     }
 
     private var header: some View {
         HStack(spacing: 10) {
             Avatar(url: chat.avatarURL, name: chat.displayName, size: 32)
             VStack(alignment: .leading, spacing: 1) {
-                Text(chat.displayName).font(.body.weight(.semibold))
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                Text(chat.displayName)
+                    .font(AppType.bodyMedium)
+                    .foregroundStyle(Color.onSurface)
+                Text(subtitle)
+                    .font(AppType.caption)
+                    .foregroundStyle(Color.onSurfaceVariant)
             }
             Spacer()
             if model.isLoadingThread {
                 ProgressView().controlSize(.small)
-                Text("checking voices…").font(.caption).foregroundStyle(.secondary)
+                Text("checking voices…")
+                    .font(AppType.caption)
+                    .foregroundStyle(Color.onSurfaceVariant)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.bar)
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(Color.surfaceContainerLowest)
     }
 
     private var subtitle: String {
@@ -102,12 +108,12 @@ struct DayDivider: View {
 
     var body: some View {
         Text(label)
-            .font(.caption2.weight(.medium))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 3)
-            .background(.quaternary.opacity(0.6), in: Capsule())
-            .padding(.vertical, 8)
+            .font(AppType.captionSm)
+            .foregroundStyle(Color.onSurfaceVariant)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, 4)
+            .background(Color.surfaceContainerHigh, in: Capsule())
+            .padding(.vertical, Spacing.xs)
     }
 
     private var label: String {

@@ -13,7 +13,7 @@ struct Waveform: View {
                 ForEach(Array(levels.enumerated()), id: \.offset) { index, level in
                     let played = Double(index) / Double(max(1, levels.count - 1)) <= progress
                     RoundedRectangle(cornerRadius: 1)
-                        .fill(played ? AnyShapeStyle(.primary) : AnyShapeStyle(.quaternary))
+                        .fill(played ? Color.primaryContainer : Color.surfaceDim)
                         .frame(width: 2, height: max(4, CGFloat(level) * 28))
                 }
             }

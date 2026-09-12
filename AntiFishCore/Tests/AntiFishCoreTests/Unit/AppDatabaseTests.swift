@@ -128,9 +128,10 @@ final class AppDatabaseTests: XCTestCase {
         XCTAssertEqual(try db.lastSeenMessagePK(), 0)
         XCTAssertNil(try db.calibration())
 
-        let result = CalibrationResult(thresholds: Thresholds(reject: 0.3, match: 0.6, calibrated: true),
+        let result = CalibrationResult(thresholds: Thresholds(decision: 0.42, calibrated: true),
                                        contactCount: 7, genuineCount: 20, impostorCount: 120,
-                                       genuineMedian: 0.8, impostorMedian: 0.1, calibratedAt: when)
+                                       genuineMedian: 0.8, impostorMedian: 0.1, errorRate: 0.11,
+                                       calibratedAt: when)
         try db.saveCalibration(result)
         XCTAssertEqual(try db.thresholds(), result.thresholds)
         XCTAssertEqual(try db.calibration(), result)
