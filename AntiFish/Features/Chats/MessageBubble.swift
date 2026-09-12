@@ -18,6 +18,9 @@ struct MessageBubble: View {
                         .foregroundStyle(Color.primaryBlue)
                 }
                 content
+                if let scam = model.scamAssessments[item.id] {
+                    ScamNote(assessment: scam)
+                }
                 HStack(spacing: 4) {
                     Spacer(minLength: 0)
                     Text(item.message.date.formatted(date: .omitted, time: .shortened))
@@ -327,5 +330,28 @@ struct CheckFailureNote: View {
         .frame(maxWidth: 240, alignment: .leading)
         .background(Color.cautionContainer, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
         .accessibilityIdentifier("check.failure")
+    }
+}
+
+/// What the words in a message say, when they say something worth knowing. Local, so it appears
+/// on every message including the ones the hosted checks cannot reach.
+struct ScamNote: View {
+    let assessment: ScamAssessment
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 5) {
+            Image(systemName: "exclamationmark.bubble.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .padding(.top, 1)
+            Text(assessment.summary)
+                .font(AppType.captionSm)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(Color.onCautionContainer)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(maxWidth: 300, alignment: .leading)
+        .background(Color.cautionContainer, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .accessibilityIdentifier("scam.note")
     }
 }

@@ -273,6 +273,24 @@ final class AppModel {
     }
 
     var mailIsAvailable: Bool { mailReader.isAvailable }
+    /// What the words in a message or picture suggest. Local, instant, never runs out.
+    var scamAssessments: [Int64: ScamAssessment] = [:]
+
+    /// Judges a message by what it says, and a picture by the words inside it.
+    func assessText(_ item: ThreadItem, senderIsKnown: Bool) async {
+        if scamAssessments[item.id] != nil { return }
+        if let text = item.message.text, !text.isEmpty {
+            let assessment = ScamText.assess(text, senderIsKnown: senderIsKnown)
+            if assessment.isWorrying { scamAssessments[item.id] = assessment }
+            return
+        }
+        guard item.message.kind == .image, let url = mediaURL(for: item) else { return }
+        let assessment = await Task.detached(priority: .utility) {
+            try? ImageText.assess(at: url, senderIsKnown: senderIsKnown)
+        }.value
+        if let assessment, assessment.isWorrying { scamAssessments[item.id] = assessment }
+    }
+
     /// What the image checker concluded, keyed by message.
     var imageVerdicts: [Int64: ImageVerdict] = [:]
     /// Why it could not conclude anything, keyed by message. Shown instead of a verdict.
@@ -481,6 +499,11 @@ final class AppModel {
             if a.pinned != b.pinned { return a.pinned }
             return (a.lastNoteDate ?? .distantPast) > (b.lastNoteDate ?? .distantPast)
         }
+    }
+
+    /// Whether the person who sent this is someone the user has saved.
+    func isKnownSender(_ item: ThreadItem) -> Bool {
+        identities[item.message.senderJID]?.isSavedContact ?? false
     }
 
     func name(for jid: String) -> String {

@@ -57,6 +57,7 @@ struct CLI {
         case "calibrate": try calibrate()
         case "feed": try feed()
         case "chats": try chats()
+        case "images": try images()
         default: throw CLIError.usage
         }
     }
@@ -192,6 +193,37 @@ struct CLI {
             print(String(format: "  %-28@ %@ %2d msgs %2d voice  %@",
                          name as NSString, chat.isGroup ? "group" : "  1:1", messages.count, notes, last))
         }
+    }
+
+    /// Reads the words inside shared pictures and reports the ones that say something worrying.
+    /// Entirely local, so it works when the hosted image check has run out.
+    func images() throws {
+        try requireWhatsApp()
+        let store = try ChatStore.open(url: locator.chatStorageURL)
+        let limit = Int(options.args.first ?? "40") ?? 40
+
+        let rows = try store.db.query("""
+            SELECT mi.ZMEDIALOCALPATH AS path, m.ZISFROMME AS mine
+            FROM ZWAMESSAGE m JOIN ZWAMEDIAITEM mi ON mi.Z_PK = m.ZMEDIAITEM
+            WHERE m.ZMESSAGETYPE = 1 AND mi.ZMEDIALOCALPATH IS NOT NULL
+            ORDER BY m.Z_PK DESC LIMIT ?
+            """, [.int(Int64(limit))])
+
+        var checked = 0
+        var flagged = 0
+        for row in rows {
+            guard let relative = row.string("path") else { continue }
+            let url = locator.mediaURL(relativePath: relative)
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            checked += 1
+            let known = (row.bool("mine") ?? false)
+            guard let assessment = try? ImageText.assess(at: url, senderIsKnown: known),
+                  assessment.isWorrying else { continue }
+            flagged += 1
+            print(String(format: "  [%.2f] %@", assessment.score, url.lastPathComponent as NSString))
+            print("         \(assessment.summary)")
+        }
+        print("\n\(flagged) of \(checked) pictures say something worth a second look")
     }
 
     func calibrate() throws {

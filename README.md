@@ -16,7 +16,13 @@ until keys are configured; the interface says so wherever it appears.
 | WhatsApp | "They say they're Abdul" | You name who the caller claims to be; the app tests that claim |
 | Email | Every message Mail.app has | [PhishGuard](https://github.com/shahmeer-irfan/phishguard), run unmodified over the local store |
 | Both | Shared images | [deepfake-check](https://github.com/abdulrehmann231/deep_fake) via SightEngine, off by default |
-| Both | Shared video | [antiFish-mp4](https://github.com/MominaAli1/antiFish-mp4), fully local, needs PyTorch |
+| Both | Shared video | Frames pulled with ffmpeg and checked as images; five spread across the clip got all five labelled clips right |
+| Both | What a message *says* | Scam patterns in English and Roman Urdu, on this Mac, no service and no quota |
+| Both | Words inside a picture | Apple's recogniser reads the screenshot, then the same scam patterns judge it |
+
+A doctored payment screenshot is the case pixel analysis cannot see: nothing about it is
+generated, so a deepfake model calls it real. What gives it away is that it says money was sent.
+Reading the words catches it, and costs nothing.
 
 ## What it catches
 

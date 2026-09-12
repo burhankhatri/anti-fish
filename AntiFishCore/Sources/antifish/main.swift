@@ -12,6 +12,7 @@ usage: antifish [--db <path> | --memory-db] [--models <dir>] <command>
   verify <path|id>       verify one note by media path or message id
   calibrate              recompute thresholds from the stored enrolment
   feed [n]               print the last n verdicts
+  images [n]             read the words inside recent pictures, locally
 """
 
 do {
