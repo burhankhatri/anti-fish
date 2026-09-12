@@ -16,7 +16,7 @@ final class VoiceNoteQueryTests: XCTestCase {
         XCTAssertFalse(note.isFromMe)
         XCTAssertFalse(note.chatIsGroup)
         XCTAssertEqual(note.durationSeconds, 12)
-        XCTAssertEqual(note.relativeMediaPath, "Message/Media/111@lid/a/b/n1.opus")
+        XCTAssertEqual(note.relativeMediaPath, "Media/111@lid/a/b/n1.opus")
         XCTAssertEqual(note.date, Date(timeIntervalSinceReferenceDate: 800_000_000))
     }
 

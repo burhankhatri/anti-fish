@@ -21,12 +21,16 @@ final class ContainerLocatorTests: XCTestCase {
         XCTAssertTrue(locator.isInstalled)
         XCTAssertTrue(locator.hasFullDiskAccess)
         XCTAssertEqual(locator.contactsURL.lastPathComponent, "ContactsV2.sqlite")
+        XCTAssertEqual(locator.messageRoot.path, root.appendingPathComponent("Message").path)
         XCTAssertEqual(locator.mediaRoot.path, root.appendingPathComponent("Message/Media").path)
     }
 
-    func testMediaURLJoinsRelativePath() throws {
+    /// ZMEDIALOCALPATH is stored relative to `<container>/Message`, not to the container root.
+    /// Verified against WhatsApp Desktop 26.33: every stored voice-note path begins "Media/" and
+    /// resolves only under `<container>/Message/<path>`.
+    func testMediaURLResolvesRelativeToTheMessageDirectory() throws {
         let root = try TestEnv.tempDir()
-        let url = ContainerLocator(root: root).mediaURL(relativePath: "Message/Media/111@lid/a/b/n1.opus")
+        let url = ContainerLocator(root: root).mediaURL(relativePath: "Media/111@lid/a/b/n1.opus")
         XCTAssertEqual(url.path, root.appendingPathComponent("Message/Media/111@lid/a/b/n1.opus").path)
     }
 }

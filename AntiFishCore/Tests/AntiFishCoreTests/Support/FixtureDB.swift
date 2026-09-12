@@ -30,10 +30,10 @@ enum FixtureDB {
               (3,'333@lid','+1 555 0100',NULL,NULL);
             INSERT INTO ZWAGROUPMEMBER VALUES (10,'222@lid',2);
             INSERT INTO ZWAMEDIAITEM VALUES
-              (100,12,'Message/Media/111@lid/a/b/n1.opus',1000),
-              (101,8,'Message/Media/200@g.us/c/d/n2.opus',1001),
+              (100,12,'Media/111@lid/a/b/n1.opus',1000),
+              (101,8,'Media/200@g.us/c/d/n2.opus',1001),
               (102,5,NULL,1002),
-              (103,30,'Message/Media/111@lid/e/f/mine.opus',1003);
+              (103,30,'Media/111@lid/e/f/mine.opus',1003);
             INSERT INTO ZWAMESSAGE (Z_PK,ZISFROMME,ZMESSAGETYPE,ZCHATSESSION,ZGROUPMEMBER,ZMEDIAITEM,ZMESSAGEDATE,ZFROMJID,ZTOJID) VALUES
               (1000,0,3,1,NULL,100,800000000,'111@lid',NULL),
               (1001,0,3,2,10,101,800000100,'200@g.us',NULL),

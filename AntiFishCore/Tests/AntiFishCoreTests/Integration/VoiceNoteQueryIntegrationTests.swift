@@ -8,7 +8,7 @@ final class VoiceNoteQueryIntegrationTests: XCTestCase {
         let store = try ChatStore.open(url: locator.chatStorageURL)
         let notes = try VoiceNoteQuery.fetch(store)
         XCTAssertGreaterThan(notes.count, 0)
-        XCTAssertTrue(notes.allSatisfy { $0.relativeMediaPath.hasPrefix("Message/Media/") })
+        XCTAssertTrue(notes.allSatisfy { $0.relativeMediaPath.hasPrefix("Media/") })
         let incomingOnDisk = notes.filter {
             !$0.isFromMe && FileManager.default.fileExists(atPath: locator.mediaURL(relativePath: $0.relativeMediaPath).path)
         }
