@@ -22,3 +22,6 @@ AntiFish/Resources/Models/*.onnx
 
 # SwiftPM
 AntiFishCore/.build/
+
+# XcodeGen output
+AntiFish.xcodeproj/

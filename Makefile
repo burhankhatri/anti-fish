@@ -36,3 +36,37 @@ cli: models
 
 clean:
 	rm -rf AntiFishCore/.build
+
+# ── macOS app ───────────────────────────────────────────────────────────────
+APP_NAME  := AntiFish.app
+BUILT_APP := build/Build/Products/Debug/$(APP_NAME)
+INSTALLED := /Applications/$(APP_NAME)
+
+.PHONY: project app install run test-app test-ui
+
+project:
+	xcodegen generate
+
+app: project models
+	find build -name "._*" -type f -delete 2>/dev/null || true
+	xcodebuild -project AntiFish.xcodeproj -scheme AntiFish -configuration Debug \
+	  -destination 'platform=macOS' -derivedDataPath build -allowProvisioningUpdates build
+
+# TCC keys Full Disk Access to the bundle id and team, so rebuilds keep the grant.
+install: app
+	rm -rf "$(INSTALLED)"
+	cp -R "$(BUILT_APP)" "$(INSTALLED)"
+
+run: install
+	pkill -f "$(APP_NAME)/Contents/MacOS/AntiFish" 2>/dev/null || true
+	open "$(INSTALLED)"
+
+test-app: project models
+	xcodebuild -project AntiFish.xcodeproj -scheme AntiFish -configuration Debug \
+	  -destination 'platform=macOS' -derivedDataPath build -allowProvisioningUpdates \
+	  test -only-testing:AntiFishTests
+
+test-ui: project models
+	ANTIFISH_REAL_WA=1 xcodebuild -project AntiFish.xcodeproj -scheme AntiFish -configuration Debug \
+	  -destination 'platform=macOS' -derivedDataPath build -allowProvisioningUpdates \
+	  test -only-testing:AntiFishUITests
