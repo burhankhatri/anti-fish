@@ -47,7 +47,61 @@ public final class AppDatabase: Sendable {
                 CREATE TABLE setting (key TEXT PRIMARY KEY, value TEXT NOT NULL);
                 """)
         }),
+        ("v2", { db in
+            try db.execute("""
+                CREATE TABLE mediaVerdict (
+                    messagePK INTEGER NOT NULL, medium TEXT NOT NULL,
+                    payload TEXT NOT NULL, checkedAt REAL NOT NULL,
+                    PRIMARY KEY (messagePK, medium));
+                """)
+        }),
     ] }
+
+    // MARK: Image and video checks
+
+    /// Checking a picture costs a network round trip and a slice of a paid quota, so the answer is
+    /// kept. Without this the same picture was judged again after every launch, and until it was,
+    /// it showed as unchecked — which a reader takes to mean nothing is wrong.
+    public func saveImageVerdict(_ verdict: ImageVerdict, messagePK: Int64) throws {
+        try saveMediaVerdict(verdict, messagePK: messagePK, medium: "image")
+    }
+
+    public func imageVerdicts() throws -> [Int64: ImageVerdict] {
+        try mediaVerdicts(medium: "image")
+    }
+
+    public func saveVideoVerdict(_ verdict: VideoVerdict, messagePK: Int64) throws {
+        try saveMediaVerdict(verdict, messagePK: messagePK, medium: "video")
+    }
+
+    public func videoVerdicts() throws -> [Int64: VideoVerdict] {
+        try mediaVerdicts(medium: "video")
+    }
+
+    private func saveMediaVerdict<V: Encodable>(_ verdict: V, messagePK: Int64,
+                                                medium: String) throws {
+        let payload = String(decoding: try JSONEncoder().encode(verdict), as: UTF8.self)
+        try db.run("""
+            INSERT INTO mediaVerdict (messagePK, medium, payload, checkedAt) VALUES (?, ?, ?, ?)
+            ON CONFLICT(messagePK, medium) DO UPDATE SET payload = excluded.payload,
+                checkedAt = excluded.checkedAt
+            """, [.int(messagePK), .text(medium), .text(payload),
+                  .double(Date().timeIntervalSinceReferenceDate)])
+    }
+
+    /// A payload this version cannot read is skipped rather than throwing: one unreadable row
+    /// should not cost the user every other answer.
+    private func mediaVerdicts<V: Decodable>(medium: String) throws -> [Int64: V] {
+        var result: [Int64: V] = [:]
+        let decoder = JSONDecoder()
+        for row in try db.query("SELECT messagePK, payload FROM mediaVerdict WHERE medium = ?",
+                                [.text(medium)]) {
+            guard let pk = row.int("messagePK"), let payload = row.string("payload"),
+                  let verdict = try? decoder.decode(V.self, from: Data(payload.utf8)) else { continue }
+            result[pk] = verdict
+        }
+        return result
+    }
 
     // MARK: Contacts
 

@@ -133,6 +133,7 @@ final class AppModel {
             let db = try self.db ?? AppDatabase(url: databaseURL)
             self.db = db
             try checkRelink(db)
+            loadStoredMediaVerdicts(db)
 
             if coordinator == nil {
                 let models = ModelPaths(directory: modelsDirectory)
@@ -313,6 +314,17 @@ final class AppModel {
     var checkFailures: [Int64: CheckFailure] = [:]
     var imageCheckInFlight: Int64?
 
+    /// Brings back what earlier runs concluded, so a picture already judged still reads the same
+    /// on the next launch instead of reverting to unchecked.
+    private func loadStoredMediaVerdicts(_ db: AppDatabase) {
+        if let stored = try? db.imageVerdicts() {
+            imageVerdicts.merge(stored) { current, _ in current }
+        }
+        if let stored = try? db.videoVerdicts() {
+            videoVerdicts.merge(stored) { current, _ in current }
+        }
+    }
+
     /// Sends one shared image to SightEngine. This is the only thing AntiFish uploads.
     func checkImage(_ item: ThreadItem) async {
         guard imageCheck.isConfigured, let url = mediaURL(for: item) else { return }
@@ -327,6 +339,7 @@ final class AppModel {
         case .checked(let verdict):
             imageVerdicts[item.id] = verdict
             checkFailures.removeValue(forKey: item.id)
+            try? db?.saveImageVerdict(verdict, messagePK: item.id)
         case .failed(let failure):
             checkFailures[item.id] = failure
             imageVerdicts.removeValue(forKey: item.id)
@@ -351,6 +364,7 @@ final class AppModel {
         case .checked(let verdict):
             videoVerdicts[item.id] = verdict
             checkFailures.removeValue(forKey: item.id)
+            try? db?.saveVideoVerdict(verdict, messagePK: item.id)
         case .failed(let failure):
             checkFailures[item.id] = failure
             videoVerdicts.removeValue(forKey: item.id)
