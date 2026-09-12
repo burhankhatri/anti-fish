@@ -26,7 +26,17 @@ struct ChatListView: View {
         .background(Color.surfaceContainerLow)
         .searchable(text: $model.chatSearch, placement: .sidebar, prompt: "Search chats")
         .safeAreaInset(edge: .top, spacing: 0) {
-            HStack(spacing: 8) {
+            VStack(spacing: Spacing.xs) {
+              Picker("", selection: $model.chatFilter) {
+                  ForEach(ChatFilter.allCases) { filter in
+                      Label(filter.title, systemImage: filter.symbol).tag(filter)
+                  }
+              }
+              .pickerStyle(.segmented)
+              .labelsHidden()
+              .accessibilityIdentifier("chat.filter")
+
+              HStack(spacing: 8) {
                 Picker("", selection: $model.chatOrder) {
                     ForEach(ChatOrder.allCases) { Text($0.title).font(AppType.captionSm).tag($0) }
                 }
@@ -43,6 +53,7 @@ struct ChatListView: View {
                     .buttonStyle(.borderless)
                     .help("Show hidden chats again")
                 }
+              }
             }
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)

@@ -38,6 +38,8 @@ final class AppModel {
     /// Changing the order re-sorts what is already loaded. Re-reading 500 chats from WhatsApp to
     /// answer a question about ordering made the switch feel broken.
     var chatOrder: ChatOrder = .recent
+    /// People or groups. Applied in memory like the ordering, so switching is instant.
+    var chatFilter: ChatFilter = .everyone
 
     var visibleChats: [ChatRow] {
         let ordered: [ChatRow]
@@ -53,9 +55,12 @@ final class AppModel {
                 return (a.lastMessageDate ?? .distantPast) > (b.lastMessageDate ?? .distantPast)
             }
         }
-        guard !chatSearch.isEmpty else { return ordered }
+        let kept = chatFilter == .everyone
+            ? ordered
+            : ordered.filter { chatFilter == .groups ? $0.isGroup : !$0.isGroup }
+        guard !chatSearch.isEmpty else { return kept }
         let needle = chatSearch.lowercased()
-        return ordered.filter { $0.displayName.lowercased().contains(needle) }
+        return kept.filter { $0.displayName.lowercased().contains(needle) }
     }
 
     var selectedChat: ChatRow? {
