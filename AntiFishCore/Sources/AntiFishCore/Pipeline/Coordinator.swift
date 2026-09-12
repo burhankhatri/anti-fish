@@ -246,6 +246,66 @@ public actor Coordinator {
         return NameResolver.resolve(jid, tables: tables)
     }
 
+    public func setPinned(jid: String, _ pinned: Bool) throws {
+        try db.setPinned(jid: jid, pinned)
+    }
+
+    /// "Report impostor": take the sender out of the picture entirely. Their fingerprint and
+    /// enrolment go, they stay out of future enrolment runs, and the verdict is pinned red.
+    public func reportImpostor(messagePK: Int64) throws {
+        guard let verdict = try db.verdict(messagePK: messagePK) else { return }
+        let jid = verdict.senderJID
+        if try db.contact(jid: jid) == nil {
+            let who = try identity(for: jid)
+            try db.saveContacts([ContactRecord(jid: jid, displayName: who.displayName,
+                                               isSaved: who.isSavedContact, pinned: false,
+                                               blacklisted: true, avatarPath: who.avatarPath)])
+        } else {
+            try db.setBlacklisted(jid: jid, true)
+        }
+        try db.replaceEnrollment(jid: jid, notes: [])
+        try db.saveFingerprints(try db.fingerprints().filter { $0.jid != jid })
+        try db.overrideVerdict(messagePK: messagePK, kind: .impersonationSuspected, colour: .red,
+                               reason: "userReported",
+                               explanation: "You reported this sender as an impostor.")
+    }
+
+    /// "Yes, this is really them": the user overrules the app, so the note joins the sender's
+    /// enrolment regardless of score and the verdict becomes verified.
+    public func markGenuine(messagePK: Int64) async throws {
+        guard let verdict = try db.verdict(messagePK: messagePK) else { return }
+        let jid = verdict.senderJID
+        let analysis = try await engine.analyze(url: config.locator.mediaURL(relativePath: verdict.relativeMediaPath))
+        guard !analysis.embedding.isEmpty else { return }
+
+        let candidate = EnrolledNote(jid: jid, messagePK: messagePK, embedding: analysis.embedding,
+                                     speechSeconds: analysis.speechSeconds, date: verdict.date)
+        var notes = try db.enrollmentNotes(jid: jid).filter { $0.messagePK != messagePK }
+        notes.append(candidate)
+        notes.sort { $0.date > $1.date }
+        let kept = Array(notes.prefix(config.policy.maxNotes))
+        try db.replaceEnrollment(jid: jid, notes: kept)
+
+        // A user-confirmed contact gets a fingerprint even on thin evidence; they vouched for it.
+        var relaxed = config.policy
+        relaxed.minNotes = 1
+        relaxed.minSpeechSeconds = 0
+        let center = try db.embeddingCenter()
+        let refreshed = Enroller.fingerprints(from: kept, policy: relaxed, center: center,
+                                              modelVersion: engine.modelVersion)
+        try db.saveFingerprints(try db.fingerprints().filter { $0.jid != jid } + refreshed)
+
+        if try db.contact(jid: jid) == nil {
+            let who = try identity(for: jid)
+            try db.saveContacts([ContactRecord(jid: jid, displayName: who.displayName,
+                                               isSaved: who.isSavedContact, pinned: false,
+                                               blacklisted: false, avatarPath: who.avatarPath)])
+        }
+        try db.overrideVerdict(messagePK: messagePK, kind: .verified, colour: .green,
+                               reason: "userConfirmed",
+                               explanation: "You confirmed this is really \(try identity(for: jid).displayName).")
+    }
+
     public func protectedJIDs() throws -> [String] {
         Enroller.protectedJIDs(try db.fingerprints(),
                                pinned: try db.contacts().filter(\.pinned).map(\.jid),

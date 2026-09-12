@@ -68,10 +68,11 @@ final class CoordinatorActionsIntegrationTests: XCTestCase {
         try TestEnv.skipUnlessModels()
         let (coordinator, db, _, fingerprints) = try await enrolled()
         let last = try XCTUnwrap(fingerprints.last?.jid)
-        try XCTSkipUnless(try await coordinator.protectedJIDs().contains(last) == false,
-                          "needs a contact outside the protected list")
+        let protectedBefore = try await coordinator.protectedJIDs()
+        try XCTSkipUnless(!protectedBefore.contains(last), "needs a contact outside the protected list")
         try await coordinator.setPinned(jid: last, true)
-        XCTAssertEqual(try await coordinator.protectedJIDs().first, last)
+        let protectedAfter = try await coordinator.protectedJIDs()
+        XCTAssertEqual(protectedAfter.first, last)
         XCTAssertEqual(try db.contact(jid: last)?.pinned, true)
     }
 }
