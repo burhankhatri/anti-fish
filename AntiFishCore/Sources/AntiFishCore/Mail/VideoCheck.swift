@@ -70,8 +70,16 @@ public struct VideoCheck: Sendable {
         return ""
     }
 
-    public func check(videoAt url: URL) throws -> VideoVerdict? {
-        guard let credentials, let scriptURL else { return nil }
+    public enum Outcome: Sendable, Equatable {
+        case checked(VideoVerdict)
+        case failed(CheckFailure)
+    }
+
+    public func check(videoAt url: URL) throws -> Outcome {
+        guard let credentials, let scriptURL else {
+            return .failed(CheckFailure(kind: .notConfigured,
+                                        message: CheckFailureKind.notConfigured.defaultMessage))
+        }
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -87,13 +95,18 @@ public struct VideoCheck: Sendable {
         let data = out.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
 
-        guard process.terminationStatus == 0,
-              let row = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              row["error"] == nil else { return nil }
-
-        return VideoVerdict.from(peakAI: row["ai_generated"] as? Double ?? 0,
-                                 peakDeepfake: row["deepfake"] as? Double ?? 0,
-                                 framesChecked: row["framesChecked"] as? Int ?? 0,
-                                 framesFlagged: row["framesFlagged"] as? Int ?? 0)
+        guard let row = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return .failed(CheckFailure(kind: .failed, message: CheckFailureKind.failed.defaultMessage))
+        }
+        if let error = row["error"] as? String {
+            return .failed(CheckFailure.from(errorText: error))
+        }
+        guard process.terminationStatus == 0 else {
+            return .failed(CheckFailure(kind: .failed, message: CheckFailureKind.failed.defaultMessage))
+        }
+        return .checked(VideoVerdict.from(peakAI: row["ai_generated"] as? Double ?? 0,
+                                          peakDeepfake: row["deepfake"] as? Double ?? 0,
+                                          framesChecked: row["framesChecked"] as? Int ?? 0,
+                                          framesFlagged: row["framesFlagged"] as? Int ?? 0))
     }
 }

@@ -275,6 +275,8 @@ final class AppModel {
     var mailIsAvailable: Bool { mailReader.isAvailable }
     /// What the image checker concluded, keyed by message.
     var imageVerdicts: [Int64: ImageVerdict] = [:]
+    /// Why it could not conclude anything, keyed by message. Shown instead of a verdict.
+    var checkFailures: [Int64: CheckFailure] = [:]
     var imageCheckInFlight: Int64?
 
     /// Sends one shared image to SightEngine. This is the only thing AntiFish uploads.
@@ -283,10 +285,18 @@ final class AppModel {
         imageCheckInFlight = item.id
         defer { imageCheckInFlight = nil }
         let check = imageCheck
-        let verdict = await Task.detached(priority: .userInitiated) {
-            try? check.check(imageAt: url)
+        let outcome = await Task.detached(priority: .userInitiated) {
+            (try? check.check(imageAt: url)) ?? .failed(CheckFailure(kind: .failed,
+                                                                     message: CheckFailureKind.failed.defaultMessage))
         }.value
-        if let verdict { imageVerdicts[item.id] = verdict }
+        switch outcome {
+        case .checked(let verdict):
+            imageVerdicts[item.id] = verdict
+            checkFailures.removeValue(forKey: item.id)
+        case .failed(let failure):
+            checkFailures[item.id] = failure
+            imageVerdicts.removeValue(forKey: item.id)
+        }
     }
 
     /// What the video checker concluded, keyed by message.
@@ -299,10 +309,18 @@ final class AppModel {
         videoCheckInFlight = item.id
         defer { videoCheckInFlight = nil }
         let check = videoCheck
-        let verdict = await Task.detached(priority: .userInitiated) {
-            try? check.check(videoAt: url)
+        let outcome = await Task.detached(priority: .userInitiated) {
+            (try? check.check(videoAt: url)) ?? .failed(CheckFailure(kind: .failed,
+                                                                     message: CheckFailureKind.failed.defaultMessage))
         }.value
-        if let verdict = verdict ?? nil { videoVerdicts[item.id] = verdict }
+        switch outcome {
+        case .checked(let verdict):
+            videoVerdicts[item.id] = verdict
+            checkFailures.removeValue(forKey: item.id)
+        case .failed(let failure):
+            checkFailures[item.id] = failure
+            videoVerdicts.removeValue(forKey: item.id)
+        }
     }
 
     var videoCheckAvailable: Bool { videoCheck.isConfigured }

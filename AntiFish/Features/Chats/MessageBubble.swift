@@ -200,7 +200,9 @@ struct ImageBubble: View {
                     .foregroundStyle(Color.onSurfaceVariant)
             }
 
-            if let verdict {
+            if let failure = model.checkFailures[item.id] {
+                CheckFailureNote(failure: failure)
+            } else if let verdict, verdict.kind != .unchecked {
                 HStack(spacing: 5) {
                     Image(systemName: verdict.isAlarming ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
                         .font(.system(size: 11, weight: .semibold))
@@ -260,7 +262,9 @@ struct VideoBubble: View {
                 }
             }
 
-            if let verdict {
+            if let failure = model.checkFailures[item.id] {
+                CheckFailureNote(failure: failure)
+            } else if let verdict, verdict.image.kind != .unchecked {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
                         Image(systemName: verdict.isAlarming
@@ -295,5 +299,33 @@ struct VideoBubble: View {
                 .accessibilityIdentifier("video.check.\(item.id)")
             }
         }
+    }
+}
+
+/// Shown when a check could not be made. Never green, never a tick: a check that did not happen
+/// is not a pass, and a non-technical reader will believe whatever the colour says.
+struct CheckFailureNote: View {
+    let failure: CheckFailure
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 5) {
+            Image(systemName: "exclamationmark.circle")
+                .font(.system(size: 11, weight: .semibold))
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Couldn't check this")
+                    .font(AppType.captionSm)
+                Text(failure.message)
+                    .font(AppType.captionSm)
+                    .opacity(0.85)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .foregroundStyle(Color.onCautionContainer)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(maxWidth: 240, alignment: .leading)
+        .background(Color.cautionContainer, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .accessibilityIdentifier("check.failure")
     }
 }

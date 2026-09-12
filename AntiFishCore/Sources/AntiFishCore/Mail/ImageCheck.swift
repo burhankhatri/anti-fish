@@ -21,6 +21,9 @@ public struct ImageVerdict: Sendable, Codable, Equatable {
 
     public var isAlarming: Bool { kind == .aiGenerated || kind == .faceSwapped }
 
+    /// Only a completed check that found nothing is reassuring. A check that never ran is not.
+    public var isReassuring: Bool { kind == .authentic }
+
     public init(kind: ImageVerdictKind, confidence: Double, aiGenerated: Double = 0, deepfake: Double = 0) {
         self.kind = kind
         self.confidence = confidence
@@ -117,8 +120,16 @@ public struct ImageCheck: Sendable {
 
     /// Sends one image to SightEngine through deepfake-check and returns its verdict.
     /// The image leaves this Mac.
-    public func check(imageAt url: URL) throws -> ImageVerdict {
-        guard let credentials, let scriptURL else { return ImageVerdict(kind: .unchecked, confidence: 0) }
+    public enum Outcome: Sendable, Equatable {
+        case checked(ImageVerdict)
+        case failed(CheckFailure)
+    }
+
+    public func check(imageAt url: URL) throws -> Outcome {
+        guard let credentials, let scriptURL else {
+            return .failed(CheckFailure(kind: .notConfigured,
+                                        message: CheckFailureKind.notConfigured.defaultMessage))
+        }
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -134,14 +145,16 @@ public struct ImageCheck: Sendable {
         let data = out.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
 
-        guard process.terminationStatus == 0,
-              let parsed = try? JSONSerialization.jsonObject(with: data) else {
-            return ImageVerdict(kind: .unchecked, confidence: 0)
+        guard let row = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return .failed(CheckFailure(kind: .failed, message: CheckFailureKind.failed.defaultMessage))
         }
-        guard let row = parsed as? [String: Any], row["error"] == nil else {
-            return ImageVerdict(kind: .unchecked, confidence: 0)
+        if let error = row["error"] as? String {
+            return .failed(CheckFailure.from(errorText: error))
         }
-        return ImageVerdict.from(aiGenerated: row["ai_generated"] as? Double ?? 0,
-                                 deepfake: row["deepfake"] as? Double ?? 0)
+        guard process.terminationStatus == 0 else {
+            return .failed(CheckFailure(kind: .failed, message: CheckFailureKind.failed.defaultMessage))
+        }
+        return .checked(ImageVerdict.from(aiGenerated: row["ai_generated"] as? Double ?? 0,
+                                          deepfake: row["deepfake"] as? Double ?? 0))
     }
 }
