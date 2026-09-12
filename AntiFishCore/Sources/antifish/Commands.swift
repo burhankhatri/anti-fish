@@ -58,6 +58,7 @@ struct CLI {
         case "feed": try feed()
         case "chats": try chats()
         case "images": try images()
+        case "checkfile": try checkFile()
         default: throw CLIError.usage
         }
     }
@@ -224,6 +225,26 @@ struct CLI {
             print("         \(assessment.summary)")
         }
         print("\n\(flagged) of \(checked) pictures say something worth a second look")
+    }
+
+    /// Runs every local check over one file, for confirming a demo asset actually fires.
+    func checkFile() throws {
+        for path in options.args {
+            let url = URL(fileURLWithPath: path)
+            print("\(url.lastPathComponent):")
+            if let assessment = try? ImageText.assess(at: url, senderIsKnown: false) {
+                print("  words inside: \(assessment.isWorrying ? "FLAGGED" : "nothing worrying")")
+                if assessment.isWorrying { print("    \(assessment.summary)") }
+            }
+            if url.pathExtension.lowercased() == "opus",
+               let decoded = try? OpusDecoder.decode(url: url) {
+                let trimmer = try? SpeechTrimmer(modelPath: ModelPaths(directory: options.modelsDir).vadModel)
+                let speech = trimmer?.trim(decoded.samples)
+                let result = SynthesisCheck.assess(samples: speech?.samples ?? decoded.samples,
+                                                   speechSeconds: speech?.speechSeconds ?? decoded.seconds)
+                print("  sounds machine-made: \(result.soundsSynthetic ? "YES" : "no")")
+            }
+        }
     }
 
     func calibrate() throws {

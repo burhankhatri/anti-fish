@@ -209,6 +209,8 @@ final class AppModel {
         case .enrollmentFinished(let count, let protected):
             protectedJIDs = protected
             statusLine = "Watching · \(protected.count) protected · \(count) enrolled"
+            // Someone newly enrolled has to appear among the people a caller might claim to be.
+            await loadClaimCandidates()
         case .verdict(let record):
             applyVerdictToThread(record)
             // Rebuilding the feed on every verdict made opening a chat rebuild it thirty times.

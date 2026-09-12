@@ -129,6 +129,68 @@ public actor Coordinator {
         return fingerprints
     }
 
+    /// Builds baselines for people who have crossed the threshold since the last full enrolment.
+    ///
+    /// The first run enrols everyone with enough voice. Anyone who starts sending voice notes
+    /// afterwards had no baseline at all, so they could not be verified and never appeared among
+    /// the people a caller might claim to be.
+    ///
+    /// The centre of the embedding space is deliberately left as it was: moving it would make
+    /// every existing centroid incomparable with the scores already stored against it.
+    @discardableResult
+    public func enrollNewcomers() async throws -> [String] {
+        let store = try openStores()
+        let policy = config.policy
+        let existing = Set(try db.fingerprints().map(\.jid))
+        let blacklist = Set(try db.contacts().filter(\.blacklisted).map(\.jid))
+        let center = try db.embeddingCenter()
+
+        let bySender = Dictionary(grouping: try VoiceNoteQuery.fetch(store)
+                                    .filter { isCandidate($0) && mediaExists($0) },
+                                  by: \.senderJID)
+            .filter { jid, notes in
+                !existing.contains(jid) && !blacklist.contains(jid) && notes.count >= policy.minNotes
+            }
+        guard !bySender.isEmpty else { return [] }
+
+        var added: [String] = []
+        var fingerprints = try db.fingerprints()
+
+        for (jid, notes) in bySender {
+            var enrolled: [EnrolledNote] = []
+            for note in notes.sorted(by: { $0.date > $1.date }).prefix(policy.maxNotes) {
+                guard let analysis = try? await engine.analyze(
+                    url: config.locator.mediaURL(relativePath: note.relativeMediaPath)),
+                      !analysis.embedding.isEmpty else { continue }
+                enrolled.append(EnrolledNote(jid: jid, messagePK: note.messagePK,
+                                             embedding: analysis.embedding,
+                                             speechSeconds: analysis.speechSeconds, date: note.date))
+            }
+            let built = Enroller.fingerprints(from: enrolled, policy: policy, center: center,
+                                              modelVersion: engine.modelVersion)
+            guard let fingerprint = built.first else { continue }
+            try db.replaceEnrollment(jid: jid, notes: enrolled)
+            fingerprints.append(fingerprint)
+            added.append(jid)
+
+            if try db.contact(jid: jid) == nil {
+                let who = NameResolver.resolve(jid, tables: tables)
+                try db.saveContacts([ContactRecord(jid: jid, displayName: who.displayName,
+                                                   isSaved: who.isSavedContact, pinned: false,
+                                                   blacklisted: false, avatarPath: who.avatarPath)])
+            }
+        }
+
+        guard !added.isEmpty else { return [] }
+        try db.saveFingerprints(fingerprints)
+        try db.saveCalibration(Calibrator.calibrate(notes: try db.allEnrollmentNotes(), center: center))
+        let pinned = try db.contacts().filter(\.pinned).map(\.jid)
+        continuation.yield(.enrollmentFinished(
+            fingerprints: fingerprints.count,
+            protected: Enroller.protectedJIDs(fingerprints, pinned: pinned, policy: policy)))
+        return added
+    }
+
     // MARK: Verification
 
     /// Everyone the user could name when asked "who does this person say they are?".
@@ -268,6 +330,9 @@ public actor Coordinator {
             }
             results.append(try await verify(note))
         }
+        // Someone may have crossed the threshold with the notes just processed.
+        try await enrollNewcomers()
+
         let maxPK = try VoiceNoteQuery.maxMessagePK(store)
         let floor = try VoiceNoteQuery.pendingFloor(store, since: Date().addingTimeInterval(-config.pendingLookback))
         let next = min(maxPK, (floor ?? Int64.max) - 1)
