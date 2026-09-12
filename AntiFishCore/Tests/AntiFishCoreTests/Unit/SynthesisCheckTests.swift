@@ -55,13 +55,13 @@ final class SynthesisCheckTests: XCTestCase {
         let f = SynthesisCheck.features(of: tone)
         XCTAssertLessThan(f.energyVariation, 0.1, "a steady tone barely varies in loudness")
 
-        // Noise varies wildly.
-        var seed: UInt64 = 42
-        let noise = (0..<16_000).map { _ -> Float in
-            seed = seed &* 6364136223846793005 &+ 1442695040888963407
-            return Float(Int32(truncatingIfNeeded: seed >> 33)) / Float(Int32.max) * 0.5
+        // A sweep from low to high pitch changes how often the waveform crosses zero, which is
+        // exactly what the second cue measures.
+        let sweep = (0..<16_000).map { i -> Float in
+            let t = Double(i) / 16_000
+            return Float(sin(2 * .pi * (200 + 3_000 * t) * t)) * 0.5
         }
-        XCTAssertGreaterThan(SynthesisCheck.features(of: noise).zeroCrossingVariation, 0)
+        XCTAssertGreaterThan(SynthesisCheck.features(of: sweep).zeroCrossingVariation, 0.01)
     }
 
     func testSilenceProducesNothing() {
