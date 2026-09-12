@@ -12,7 +12,7 @@ final class ChatStoreTests: XCTestCase {
     func testOpensFixtureReadOnly() throws {
         let pair = try FixtureDB.standardPair()
         let store = try ChatStore(url: pair.chat)
-        XCTAssertEqual(try store.db.scalarInt("SELECT COUNT(*) FROM ZWAMESSAGE"), 5)
+        XCTAssertEqual(try store.db.scalarInt("SELECT COUNT(*) FROM ZWAMESSAGE"), 9)
         XCTAssertTrue(try store.tableExists("ZWAMEDIAITEM"))
         XCTAssertFalse(try store.tableExists("ZWANOPE"))
         XCTAssertThrowsError(try store.db.execute("CREATE TABLE t (x INTEGER)"))
@@ -26,14 +26,14 @@ final class ChatStoreTests: XCTestCase {
         XCTAssertEqual(copy.lastPathComponent, "ChatStorage.sqlite")
         XCTAssertTrue(FileManager.default.fileExists(atPath: copy.path + "-wal"))
         try FileManager.default.removeItem(atPath: copy.path + "-wal")
-        XCTAssertEqual(try ChatStore(url: copy).db.scalarInt("SELECT COUNT(*) FROM ZWAMESSAGE"), 5)
+        XCTAssertEqual(try ChatStore(url: copy).db.scalarInt("SELECT COUNT(*) FROM ZWAMESSAGE"), 9)
     }
 
     func testOpenWithRetriesReturnsWorkingStore() throws {
         let pair = try FixtureDB.standardPair()
         let store = try ChatStore.open(url: pair.chat)
         XCTAssertEqual(store.url, pair.chat)
-        XCTAssertEqual(try store.db.scalarInt("SELECT COUNT(*) FROM ZWAMESSAGE"), 5)
+        XCTAssertEqual(try store.db.scalarInt("SELECT COUNT(*) FROM ZWAMESSAGE"), 9)
     }
 
     func testOpenPropagatesNotFoundWithoutRetrying() throws {
